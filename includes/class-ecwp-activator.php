@@ -13,6 +13,7 @@ class ECWP_Activator {
 	public static function activate() {
 		self::create_tables();
 		self::set_defaults();
+		update_option( 'ecwp_db_version', ECWP_VERSION );
 		flush_rewrite_rules();
 	}
 

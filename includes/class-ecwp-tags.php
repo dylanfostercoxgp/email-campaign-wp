@@ -93,7 +93,7 @@ class ECWP_Tags {
 	public function add_tag_to_subscriber( $subscriber_id, $tag_id ) {
 		global $wpdb;
 		$exists = $wpdb->get_var( $wpdb->prepare(
-			"SELECT id FROM {$this->sub_tags_table} WHERE subscriber_id = %d AND tag_id = %d",
+			"SELECT COUNT(*) FROM {$this->sub_tags_table} WHERE subscriber_id = %d AND tag_id = %d",
 			$subscriber_id, $tag_id
 		) );
 		if ( ! $exists ) {

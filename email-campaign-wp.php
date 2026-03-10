@@ -41,6 +41,15 @@ if ( is_admin() ) {
 register_activation_hook(   __FILE__, [ 'ECWP_Activator',   'activate' ] );
 register_deactivation_hook( __FILE__, [ 'ECWP_Deactivator', 'deactivate' ] );
 
+// ── Auto-migration: run dbDelta when the stored DB version doesn't match ───
+function ecwp_maybe_upgrade() {
+	if ( get_option( 'ecwp_db_version' ) !== ECWP_VERSION ) {
+		ECWP_Activator::activate();
+		update_option( 'ecwp_db_version', ECWP_VERSION );
+	}
+}
+add_action( 'plugins_loaded', 'ecwp_maybe_upgrade', 5 ); // priority 5 = before ecwp_init
+
 // ── Boot ───────────────────────────────────────────────────────────────────
 function ecwp_init() {
 	if ( is_admin() ) {

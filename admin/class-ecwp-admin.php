@@ -462,10 +462,17 @@ class ECWP_Admin {
 		} elseif ( ! empty( $_POST['html_content'] ) ) {
 			$html = wp_kses_post( $_POST['html_content'] );
 		} elseif ( ! empty( $_POST['template_id'] ) ) {
-			$tpl  = new ECWP_Templates();
-			$tmpl = $tpl->get_by_id( intval( $_POST['template_id'] ) );
-			if ( $tmpl ) {
-				$html = $tmpl['html'];
+			$tpl_id = sanitize_text_field( $_POST['template_id'] );
+			// Check system templates first (string IDs like 'sys_newsletter').
+			$sys = ECWP_Templates::get_system_template_by_id( $tpl_id );
+			if ( $sys ) {
+				$html = $sys['html'];
+			} else {
+				// User-saved template (numeric ID).
+				$tmpl = ( new ECWP_Templates() )->get_by_id( intval( $tpl_id ) );
+				if ( $tmpl ) {
+					$html = $tmpl->html;
+				}
 			}
 		}
 

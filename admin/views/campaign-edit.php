@@ -96,10 +96,10 @@ $assigned_ids = array_column( (array) $campaign_subscribers, 'id' );
 							<label>Or Load a Template</label>
 							<div class="ecwp-template-mini-grid">
 								<?php foreach ( $all_templates as $tpl ) :
-									$tpl_id   = is_array( $tpl ) ? $tpl['id']     : $tpl->id;
-									$tpl_name = is_array( $tpl ) ? $tpl['name']   : $tpl->name;
-									$tpl_acc  = is_array( $tpl ) ? $tpl['accent'] : '#2563eb';
-									$tpl_icon = is_array( $tpl ) ? $tpl['icon']   : '📄';
+									$tpl_id   = is_array( $tpl ) ? $tpl['id']                      : $tpl->id;
+									$tpl_name = is_array( $tpl ) ? $tpl['name']                    : $tpl->name;
+									$tpl_acc  = is_array( $tpl ) ? ( $tpl['preview'] ?? '#2563eb' ) : '#2563eb';
+									$tpl_icon = is_array( $tpl ) ? ( $tpl['icon']   ?? '📄' )       : '📄';
 								?>
 									<label class="ecwp-template-mini-card">
 										<input type="radio" name="template_id" value="<?php echo $tpl_id; ?>" style="display:none;">

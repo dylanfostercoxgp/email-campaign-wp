@@ -61,7 +61,7 @@ class ECWP_Templates {
 
 	// ── User-saved templates ───────────────────────────────────────────────
 
-	public function get_all_user() {
+	public function get_all() {
 		global $wpdb;
 		return $wpdb->get_results( "SELECT * FROM {$this->table} ORDER BY created_at DESC" );
 	}
@@ -71,12 +71,12 @@ class ECWP_Templates {
 		return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$this->table} WHERE id = %d", $id ) );
 	}
 
-	public function save( $name, $category, $html ) {
+	public function save( $name, $subject, $html ) {
 		global $wpdb;
 		$wpdb->insert( $this->table, [
-			'name'         => sanitize_text_field( $name ),
-			'category'     => sanitize_text_field( $category ),
-			'html_content' => $html,
+			'name'    => sanitize_text_field( $name ),
+			'subject' => sanitize_text_field( $subject ),
+			'html'    => $html,
 		] );
 		return $wpdb->insert_id;
 	}
