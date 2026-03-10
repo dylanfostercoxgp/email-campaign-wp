@@ -436,7 +436,19 @@ class ECWP_Admin {
 		}
 		$name    = sanitize_text_field( $_POST['name']    ?? '' );
 		$subject = sanitize_text_field( $_POST['subject'] ?? '' );
-		$html    = wp_kses_post( $_POST['html_content'] ?? '' );
+
+		// HTML source priority: uploaded file > textarea.
+		$html = '';
+		if ( ! empty( $_FILES['html_file'] ) && $_FILES['html_file']['error'] === UPLOAD_ERR_OK ) {
+			$ext = strtolower( pathinfo( $_FILES['html_file']['name'], PATHINFO_EXTENSION ) );
+			if ( in_array( $ext, [ 'html', 'htm' ], true ) ) {
+				$html = file_get_contents( $_FILES['html_file']['tmp_name'] );
+			}
+		}
+		if ( empty( $html ) && ! empty( $_POST['html_content'] ) ) {
+			$html = wp_unslash( $_POST['html_content'] );
+		}
+
 		if ( $name && $html ) {
 			( new ECWP_Templates() )->save( $name, $subject, $html );
 		}
@@ -558,8 +570,20 @@ class ECWP_Admin {
 			if ( in_array( $ext, [ 'html', 'htm' ], true ) ) {
 				$data['html_content'] = file_get_contents( $_FILES['html_file']['tmp_name'] );
 			}
+		} elseif ( ! empty( $_POST['template_id'] ) ) {
+			// Apply a selected template to this campaign.
+			$tpl_id = sanitize_text_field( $_POST['template_id'] );
+			$sys    = ECWP_Templates::get_system_template_by_id( $tpl_id );
+			if ( $sys ) {
+				$data['html_content'] = $sys['html'];
+			} else {
+				$tmpl = ( new ECWP_Templates() )->get_by_id( intval( $tpl_id ) );
+				if ( $tmpl ) {
+					$data['html_content'] = $tmpl->html;
+				}
+			}
 		} elseif ( isset( $_POST['html_content'] ) && $_POST['html_content'] !== '' ) {
-			$data['html_content'] = wp_kses_post( $_POST['html_content'] );
+			$data['html_content'] = wp_unslash( $_POST['html_content'] );
 		}
 
 		$campaigns = new ECWP_Campaigns();

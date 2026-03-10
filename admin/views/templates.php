@@ -91,7 +91,7 @@
 	<div class="ecwp-card">
 		<div class="ecwp-card-header"><span class="dashicons dashicons-plus-alt"></span> Save New Template</div>
 		<div class="ecwp-card-body">
-			<form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>">
+			<form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>" enctype="multipart/form-data">
 				<input type="hidden" name="action" value="ecwp_save_template">
 				<?php wp_nonce_field( 'ecwp_save_template' ); ?>
 				<div class="ecwp-settings-layout">
@@ -104,11 +104,16 @@
 							<label>Default Subject</label>
 							<input type="text" name="subject" class="ecwp-input" placeholder="Optional default subject line">
 						</div>
+						<div class="ecwp-field">
+							<label>Upload HTML File</label>
+							<input type="file" name="html_file" accept=".html,.htm" class="ecwp-input">
+							<span class="ecwp-hint">Upload a .html file — this takes priority over pasting below.</span>
+						</div>
 					</div>
 					<div>
 						<div class="ecwp-field" style="height:100%;">
-							<label>HTML Content <span class="required">*</span></label>
-							<textarea name="html_content" class="ecwp-input" rows="8" placeholder="Paste your HTML here..." required></textarea>
+							<label>Or Paste HTML Content</label>
+							<textarea name="html_content" class="ecwp-input" rows="8" placeholder="Paste your HTML here (leave blank if uploading a file above)..."></textarea>
 						</div>
 					</div>
 				</div>

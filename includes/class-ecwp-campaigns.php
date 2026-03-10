@@ -43,7 +43,7 @@ class ECWP_Campaigns {
 		$result = $wpdb->insert( $this->table, [
 			'name'             => sanitize_text_field( $data['name'] ?? '' ),
 			'subject'          => sanitize_text_field( $data['subject'] ?? '' ),
-			'html_content'     => wp_kses_post( $data['html_content'] ?? '' ),
+			'html_content'     => $data['html_content'] ?? '',
 			'status'           => 'draft',
 			'target_type'      => in_array( $data['target_type'] ?? 'all', [ 'all', 'tags', 'selected' ], true ) ? $data['target_type'] : 'all',
 			'target_tags'      => sanitize_text_field( $data['target_tags'] ?? '' ),
@@ -78,7 +78,7 @@ class ECWP_Campaigns {
 			}
 		}
 		if ( isset( $data['html_content'] ) ) {
-			$set['html_content'] = wp_kses_post( $data['html_content'] );
+			$set['html_content'] = $data['html_content'];
 		}
 
 		$set['updated_at'] = current_time( 'mysql' );

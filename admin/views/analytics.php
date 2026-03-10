@@ -15,6 +15,37 @@
 		</form>
 	</div>
 
+	<!-- Webhook setup notice -->
+	<?php if ( empty( $recent_events ) ) : ?>
+	<div class="ecwp-notice ecwp-notice-warning" style="display:flex;align-items:flex-start;gap:12px;padding:16px 20px;margin-bottom:20px;">
+		<span class="dashicons dashicons-warning" style="font-size:20px;margin-top:2px;flex-shrink:0;"></span>
+		<div style="flex:1;">
+			<strong>Webhooks not yet receiving events.</strong>
+			Add the URL below in your <a href="https://app.mailgun.com/mg/sending/domains" target="_blank">Mailgun dashboard</a>
+			under <em>Sending → Webhooks</em> for all event types (delivered, opened, clicked, failed, bounced, complained, unsubscribed)
+			— then Delivered, Opens, and Clicks will start populating automatically.
+			<div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+				<code id="ecwp-webhook-url" style="background:#f1f5f9;padding:6px 10px;border-radius:4px;font-size:13px;word-break:break-all;">
+					<?php echo esc_html( rest_url( 'ecwp/v1/webhook' ) ); ?>
+				</code>
+				<button type="button" class="ecwp-btn ecwp-btn-sm ecwp-btn-secondary"
+				        onclick="navigator.clipboard.writeText(document.getElementById('ecwp-webhook-url').textContent.trim()).then(function(){this.textContent='Copied!';var b=this;setTimeout(function(){b.textContent='Copy URL';},2000);}.bind(this));">
+					Copy URL
+				</button>
+			</div>
+		</div>
+	</div>
+	<?php else : ?>
+	<div class="ecwp-notice ecwp-notice-info" style="padding:10px 16px;margin-bottom:16px;font-size:13px;">
+		<strong>📡 Webhook URL:</strong>
+		<code id="ecwp-webhook-url" style="margin:0 8px;"><?php echo esc_html( rest_url( 'ecwp/v1/webhook' ) ); ?></code>
+		<button type="button" class="ecwp-btn ecwp-btn-sm ecwp-btn-secondary"
+		        onclick="navigator.clipboard.writeText(document.getElementById('ecwp-webhook-url').textContent.trim()).then(function(){this.textContent='Copied!';var b=this;setTimeout(function(){b.textContent='Copy';},2000);}.bind(this));">
+			Copy
+		</button>
+	</div>
+	<?php endif; ?>
+
 	<!-- Key stats -->
 	<div class="ecwp-stats-grid">
 		<?php
