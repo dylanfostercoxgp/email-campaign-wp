@@ -29,13 +29,15 @@ class ECWP_Mailgun {
 		$from = $from_name ? "{$from_name} <{$from_email}>" : $from_email;
 		$to   = $to_name   ? "{$to_name} <{$to_email}>"     : $to_email;
 
+		$click_tracking = get_option( 'ecwp_click_tracking', '0' ) === '1' ? 'yes' : 'no';
+
 		$body = [
 			'from'                => $from,
 			'to'                  => $to,
 			'subject'             => $subject,
 			'html'                => $html,
 			'o:tracking'          => 'yes',
-			'o:tracking-clicks'   => 'yes',
+			'o:tracking-clicks'   => $click_tracking,
 			'o:tracking-opens'    => 'yes',
 		];
 

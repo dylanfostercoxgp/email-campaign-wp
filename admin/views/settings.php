@@ -65,6 +65,23 @@
 							<option value="eu" <?php selected( get_option( 'ecwp_mailgun_region', 'us' ), 'eu' ); ?>>EU (api.eu.mailgun.net)</option>
 						</select>
 					</div>
+					<div class="ecwp-field">
+						<label class="ecwp-toggle-label">
+							<input type="checkbox"
+							       name="ecwp_click_tracking"
+							       value="1"
+							       class="ecwp-toggle-input"
+							       <?php checked( get_option( 'ecwp_click_tracking', '0' ), '1' ); ?>>
+							<span class="ecwp-toggle"></span>
+							<strong>Enable click tracking</strong>
+						</label>
+						<p class="ecwp-hint" style="margin-top:6px;">
+							⚠️ <strong>Leave this OFF unless you have configured a custom tracking domain with a valid SSL cert in Mailgun.</strong>
+							When enabled, Mailgun rewrites every link in outgoing emails to redirect through your Mailgun sending domain (e.g. <code>email.mg.yourdomain.com</code>).
+							If that subdomain does not have a valid SSL certificate, every link will show a browser security warning for recipients.
+							Open tracking (email open pixel) is always active and is unaffected by this setting.
+						</p>
+					</div>
 					<!-- Test Connection — button only; the actual form is outside this form below -->
 					<div style="display:flex;gap:8px;margin-top:8px;">
 						<button type="button" class="ecwp-btn ecwp-btn-secondary ecwp-btn-sm"

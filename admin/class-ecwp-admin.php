@@ -272,6 +272,7 @@ class ECWP_Admin {
 			}
 		}
 		update_option( 'ecwp_schedule_enabled', isset( $_POST['ecwp_schedule_enabled'] ) ? '1' : '0' );
+		update_option( 'ecwp_click_tracking',   isset( $_POST['ecwp_click_tracking'] )   ? '1' : '0' );
 		( new ECWP_Scheduler() )->reschedule_daily_trigger();
 		wp_redirect( admin_url( 'admin.php?page=ecwp-settings&saved=1' ) );
 		exit;
