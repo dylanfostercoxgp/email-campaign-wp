@@ -19,8 +19,11 @@ $assigned_ids = array_column( (array) $campaign_subscribers, 'id' );
 		</div>
 	</div>
 
-	<?php if ( isset( $_GET['updated'] ) ) : ?>
+	<?php if ( isset( $_GET['updated'] ) && ! isset( $_GET['sent'] ) ) : ?>
 		<div class="ecwp-notice ecwp-notice-success">Campaign updated successfully.</div>
+	<?php endif; ?>
+	<?php if ( isset( $_GET['sent'] ) ) : ?>
+		<div class="ecwp-notice ecwp-notice-success">✅ Campaign saved and sending has started!</div>
 	<?php endif; ?>
 
 	<!-- Quick actions -->
@@ -44,9 +47,10 @@ $assigned_ids = array_column( (array) $campaign_subscribers, 'id' );
 		</form>
 	</div>
 
-	<form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>" enctype="multipart/form-data" style="margin-top:20px;">
-		<input type="hidden" name="action"      value="ecwp_update_campaign">
-		<input type="hidden" name="campaign_id" value="<?php echo $campaign->id; ?>">
+	<form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>" enctype="multipart/form-data" style="margin-top:20px;" id="ecwp-edit-form">
+		<input type="hidden" name="action"           value="ecwp_update_campaign">
+		<input type="hidden" name="campaign_id"      value="<?php echo $campaign->id; ?>">
+		<input type="hidden" name="send_immediately" value="0" id="ecwp-send-immediately">
 		<?php wp_nonce_field( 'ecwp_update_campaign' ); ?>
 
 		<div class="ecwp-form-grid">
@@ -255,8 +259,15 @@ $assigned_ids = array_column( (array) $campaign_subscribers, 'id' );
 
 		</div><!-- /form-grid -->
 
-		<div class="ecwp-form-actions">
-			<button type="submit" class="ecwp-btn ecwp-btn-primary ecwp-btn-lg">Save Changes</button>
+		<div class="ecwp-form-actions" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+			<button type="submit" class="ecwp-btn ecwp-btn-primary ecwp-btn-lg" id="ecwp-btn-save">Save Changes</button>
+			<button type="button" class="ecwp-btn ecwp-btn-success ecwp-btn-lg" id="ecwp-btn-send-now"
+			        style="display:none;" onclick="ecwpSendNow()">
+				<span class="dashicons dashicons-controls-play" style="vertical-align:middle;margin-top:-2px;"></span> Save &amp; Send Now
+			</button>
+			<span id="ecwp-schedule-hint" class="ecwp-hint" style="display:none;">
+				Schedule is ON — campaign will send automatically at the scheduled time.
+			</span>
 		</div>
 	</form>
 
@@ -275,5 +286,22 @@ document.querySelectorAll('.ecwp-template-mini-card input').forEach(function(r) 
 		document.querySelectorAll('.ecwp-template-mini-card').forEach(function(c){ c.classList.remove('selected'); });
 		r.closest('.ecwp-template-mini-card').classList.add('selected');
 	});
+});
+
+// ── Schedule-aware save button ─────────────────────────────────────────────
+function ecwpUpdateSaveButton() {
+	var schedEnabled = document.querySelector('input[name="schedule_enabled"]').checked;
+	document.getElementById('ecwp-btn-save').style.display      = schedEnabled ? '' : 'none';
+	document.getElementById('ecwp-btn-send-now').style.display  = schedEnabled ? 'none' : '';
+	document.getElementById('ecwp-schedule-hint').style.display = schedEnabled ? '' : 'none';
+}
+function ecwpSendNow() {
+	document.getElementById('ecwp-send-immediately').value = '1';
+	document.getElementById('ecwp-edit-form').submit();
+}
+// Initialise on page load.
+document.addEventListener('DOMContentLoaded', function() {
+	ecwpUpdateSaveButton();
+	document.querySelector('input[name="schedule_enabled"]').addEventListener('change', ecwpUpdateSaveButton);
 });
 </script>

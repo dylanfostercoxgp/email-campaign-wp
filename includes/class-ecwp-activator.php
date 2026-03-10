@@ -21,10 +21,41 @@ class ECWP_Activator {
 	/*  Tables                                                              */
 	/* ------------------------------------------------------------------ */
 
+	/**
+	 * Explicitly add any columns that dbDelta may have failed to create on
+	 * an already-existing table (TEXT NOT NULL DEFAULT '' is refused by some
+	 * MySQL/MariaDB versions, causing dbDelta to silently skip the column).
+	 */
+	private static function upgrade_columns() {
+		global $wpdb;
+		$table = $wpdb->prefix . 'ecwp_campaigns';
+
+		// Only attempt if the campaigns table already exists.
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) !== $table ) {
+			return;
+		}
+
+		$existing = array_column(
+			$wpdb->get_results( "SHOW COLUMNS FROM {$table}" ),
+			'Field'
+		);
+
+		if ( ! in_array( 'target_type', $existing, true ) ) {
+			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN target_type VARCHAR(20) NOT NULL DEFAULT 'all' AFTER status" );
+		}
+		if ( ! in_array( 'target_tags', $existing, true ) ) {
+			// TEXT column — no DEFAULT value to avoid MySQL restrictions.
+			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN target_tags TEXT AFTER target_type" );
+		}
+	}
+
 	private static function create_tables() {
 		global $wpdb;
 		$c = $wpdb->get_charset_collate();
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+		// Explicit column migrations must run before dbDelta on the same table.
+		self::upgrade_columns();
 
 		/* ── Subscribers ──────────────────────────────────────────────── */
 		dbDelta( "CREATE TABLE {$wpdb->prefix}ecwp_subscribers (
@@ -76,7 +107,7 @@ class ECWP_Activator {
 			html_content     LONGTEXT     NOT NULL DEFAULT '',
 			status           VARCHAR(20)  NOT NULL DEFAULT 'draft',
 			target_type      VARCHAR(20)  NOT NULL DEFAULT 'all',
-			target_tags      TEXT         NOT NULL DEFAULT '',
+			target_tags      TEXT,
 			send_time        VARCHAR(10)  NOT NULL DEFAULT '10:00',
 			schedule_enabled TINYINT(1)  NOT NULL DEFAULT 0,
 			batch_size       INT          NOT NULL DEFAULT 10,

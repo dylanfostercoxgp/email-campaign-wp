@@ -559,6 +559,13 @@ class ECWP_Admin {
 			}
 		}
 
+		// Send immediately if requested (schedule disabled + user clicked Send Now).
+		if ( ! empty( $_POST['send_immediately'] ) ) {
+			( new ECWP_Scheduler() )->manual_trigger( $campaign_id );
+			wp_redirect( admin_url( "admin.php?page=ecwp-campaigns&action=edit&campaign_id={$campaign_id}&updated=1&sent=1" ) );
+			exit;
+		}
+
 		wp_redirect( admin_url( "admin.php?page=ecwp-campaigns&action=edit&campaign_id={$campaign_id}&updated=1" ) );
 		exit;
 	}
