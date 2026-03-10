@@ -362,9 +362,13 @@ class ECWP_Admin {
 			wp_redirect( admin_url( "admin.php?page=ecwp-subscribers&action=edit&subscriber_id={$id}&edit_error=" . urlencode( $result->get_error_message() ) ) );
 			exit;
 		}
-		// Update tags.
-		$tag_ids = ! empty( $_POST['tag_ids'] ) ? array_map( 'intval', (array) $_POST['tag_ids'] ) : [];
-		( new ECWP_Tags() )->set_subscriber_tags( $id, $tag_ids );
+		// Update tags — only when the tags panel was actually in the form.
+		// 'tags_submitted' is a hidden field present in subscriber-edit.php;
+		// its absence means the form came from elsewhere and we should not wipe tags.
+		if ( isset( $_POST['tags_submitted'] ) ) {
+			$tag_ids = ! empty( $_POST['tag_ids'] ) ? array_map( 'intval', (array) $_POST['tag_ids'] ) : [];
+			( new ECWP_Tags() )->set_subscriber_tags( $id, $tag_ids );
+		}
 
 		wp_redirect( admin_url( "admin.php?page=ecwp-subscribers&action=edit&subscriber_id={$id}&updated=1" ) );
 		exit;

@@ -3,7 +3,7 @@
  * Plugin Name: Email Campaign WP
  * Plugin URI:  https://ideaboss.io
  * Description: A powerful email campaign manager with Mailgun integration, subscriber management, tagging, HTML editor, batch scheduling, and full analytics.
- * Version:     1.0.3
+ * Version:     1.0.4
  * Author:      ideaBoss
  * Author URI:  https://ideaboss.io
  * License:     GPL-2.0+
@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────
-define( 'ECWP_VERSION',         '1.0.3' );
+define( 'ECWP_VERSION',         '1.0.4' );
 define( 'ECWP_PLUGIN_DIR',      plugin_dir_path( __FILE__ ) );
 define( 'ECWP_PLUGIN_URL',      plugin_dir_url( __FILE__ ) );
 define( 'ECWP_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
@@ -32,6 +32,7 @@ require_once ECWP_PLUGIN_DIR . 'includes/class-ecwp-campaigns.php';
 require_once ECWP_PLUGIN_DIR . 'includes/class-ecwp-scheduler.php';
 require_once ECWP_PLUGIN_DIR . 'includes/class-ecwp-webhooks.php';
 require_once ECWP_PLUGIN_DIR . 'includes/class-ecwp-unsubscribe.php';
+require_once ECWP_PLUGIN_DIR . 'includes/class-ecwp-signup.php';
 
 if ( is_admin() ) {
 	require_once ECWP_PLUGIN_DIR . 'admin/class-ecwp-admin.php';
@@ -58,5 +59,6 @@ function ecwp_init() {
 	( new ECWP_Scheduler() )->init();
 	( new ECWP_Webhooks() )->init();
 	( new ECWP_Unsubscribe() )->init();
+	( new ECWP_Signup() )->init();
 }
 add_action( 'plugins_loaded', 'ecwp_init' );

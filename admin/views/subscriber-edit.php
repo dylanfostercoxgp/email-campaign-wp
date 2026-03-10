@@ -29,6 +29,7 @@
 		<input type="hidden" name="action"        value="ecwp_edit_subscriber">
 		<input type="hidden" name="subscriber_id" value="<?php echo $subscriber->id; ?>">
 		<?php wp_nonce_field( 'ecwp_edit_subscriber' ); ?>
+		<input type="hidden" name="tags_submitted" value="1">
 
 		<div class="ecwp-two-col">
 
@@ -97,7 +98,7 @@
 							<?php foreach ( $all_tags as $tag ) : ?>
 								<label class="ecwp-sub-item">
 									<input type="checkbox" name="tag_ids[]" value="<?php echo $tag->id; ?>"
-									       <?php checked( in_array( (int) $tag->id, $subscriber_tag_ids, true ) ); ?>>
+									       <?php checked( in_array( (int) $tag->id, array_map( 'intval', $subscriber_tag_ids ), true ) ); ?>>
 									<span style="display:inline-flex;align-items:center;gap:6px;">
 										<span style="width:10px;height:10px;border-radius:50%;background:<?php echo esc_attr( $tag->color ); ?>;flex-shrink:0;"></span>
 										<?php echo esc_html( $tag->name ); ?>
