@@ -28,24 +28,37 @@ class ECWP_Activator {
 	 */
 	private static function upgrade_columns() {
 		global $wpdb;
-		$table = $wpdb->prefix . 'ecwp_campaigns';
 
-		// Only attempt if the campaigns table already exists.
-		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) !== $table ) {
-			return;
+		/* ── Campaigns table ──────────────────────────────────────────── */
+		$campaigns = $wpdb->prefix . 'ecwp_campaigns';
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $campaigns ) ) === $campaigns ) {
+			$existing = array_column( $wpdb->get_results( "SHOW COLUMNS FROM {$campaigns}" ), 'Field' );
+
+			if ( ! in_array( 'target_type', $existing, true ) ) {
+				$wpdb->query( "ALTER TABLE {$campaigns} ADD COLUMN target_type VARCHAR(20) NOT NULL DEFAULT 'all' AFTER status" );
+			}
+			if ( ! in_array( 'target_tags', $existing, true ) ) {
+				$wpdb->query( "ALTER TABLE {$campaigns} ADD COLUMN target_tags TEXT AFTER target_type" );
+			}
 		}
 
-		$existing = array_column(
-			$wpdb->get_results( "SHOW COLUMNS FROM {$table}" ),
-			'Field'
-		);
+		/* ── Subscribers table — optional contact fields ──────────────── */
+		$subs = $wpdb->prefix . 'ecwp_subscribers';
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $subs ) ) === $subs ) {
+			$existing = array_column( $wpdb->get_results( "SHOW COLUMNS FROM {$subs}" ), 'Field' );
 
-		if ( ! in_array( 'target_type', $existing, true ) ) {
-			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN target_type VARCHAR(20) NOT NULL DEFAULT 'all' AFTER status" );
-		}
-		if ( ! in_array( 'target_tags', $existing, true ) ) {
-			// TEXT column — no DEFAULT value to avoid MySQL restrictions.
-			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN target_tags TEXT AFTER target_type" );
+			if ( ! in_array( 'phone', $existing, true ) ) {
+				$wpdb->query( "ALTER TABLE {$subs} ADD COLUMN phone VARCHAR(50) NOT NULL DEFAULT '' AFTER last_name" );
+			}
+			if ( ! in_array( 'address', $existing, true ) ) {
+				$wpdb->query( "ALTER TABLE {$subs} ADD COLUMN address VARCHAR(500) NOT NULL DEFAULT '' AFTER phone" );
+			}
+			if ( ! in_array( 'website', $existing, true ) ) {
+				$wpdb->query( "ALTER TABLE {$subs} ADD COLUMN website VARCHAR(255) NOT NULL DEFAULT '' AFTER address" );
+			}
+			if ( ! in_array( 'notes', $existing, true ) ) {
+				$wpdb->query( "ALTER TABLE {$subs} ADD COLUMN notes TEXT AFTER website" );
+			}
 		}
 	}
 
@@ -59,13 +72,17 @@ class ECWP_Activator {
 
 		/* ── Subscribers ──────────────────────────────────────────────── */
 		dbDelta( "CREATE TABLE {$wpdb->prefix}ecwp_subscribers (
-			id            BIGINT(20)   NOT NULL AUTO_INCREMENT,
-			email         VARCHAR(255) NOT NULL,
-			first_name    VARCHAR(100) NOT NULL DEFAULT '',
-			last_name     VARCHAR(100) NOT NULL DEFAULT '',
-			status        VARCHAR(20)  NOT NULL DEFAULT 'active',
-			subscribed_at DATETIME     DEFAULT CURRENT_TIMESTAMP,
-			unsubscribed_at DATETIME   DEFAULT NULL,
+			id              BIGINT(20)   NOT NULL AUTO_INCREMENT,
+			email           VARCHAR(255) NOT NULL,
+			first_name      VARCHAR(100) NOT NULL DEFAULT '',
+			last_name       VARCHAR(100) NOT NULL DEFAULT '',
+			phone           VARCHAR(50)  NOT NULL DEFAULT '',
+			address         VARCHAR(500) NOT NULL DEFAULT '',
+			website         VARCHAR(255) NOT NULL DEFAULT '',
+			notes           TEXT,
+			status          VARCHAR(20)  NOT NULL DEFAULT 'active',
+			subscribed_at   DATETIME     DEFAULT CURRENT_TIMESTAMP,
+			unsubscribed_at DATETIME     DEFAULT NULL,
 			PRIMARY KEY (id),
 			UNIQUE KEY email (email)
 		) $c;" );

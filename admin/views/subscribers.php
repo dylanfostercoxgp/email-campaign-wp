@@ -101,6 +101,22 @@
 							<input type="text" name="last_name" class="ecwp-input" placeholder="Optional">
 						</div>
 					</div>
+					<div class="ecwp-field">
+						<label>Phone</label>
+						<input type="text" name="phone" class="ecwp-input" placeholder="Optional">
+					</div>
+					<div class="ecwp-field">
+						<label>Address</label>
+						<input type="text" name="address" class="ecwp-input" placeholder="Optional">
+					</div>
+					<div class="ecwp-field">
+						<label>Website URL</label>
+						<input type="url" name="website" class="ecwp-input" placeholder="https://example.com (Optional)">
+					</div>
+					<div class="ecwp-field">
+						<label>Notes</label>
+						<textarea name="notes" class="ecwp-input" rows="2" placeholder="Optional notes about this contact"></textarea>
+					</div>
 					<?php if ( ! empty( $all_tags ) ) : ?>
 					<div class="ecwp-field">
 						<label>Tags</label>
@@ -134,7 +150,7 @@
 			<?php if ( empty( $all_subscribers ) ) : ?>
 				<div class="ecwp-empty" style="padding:32px;">No subscribers yet. Import a CSV or add one above.</div>
 			<?php else : ?>
-				<!-- Bulk tag bar -->
+				<!-- Bulk tag bar — this form only handles bulk tagging; delete is handled by a separate form below -->
 				<form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>" id="ecwp-bulk-tag-form">
 					<input type="hidden" name="action" value="ecwp_bulk_tag">
 					<?php wp_nonce_field( 'ecwp_bulk_tag' ); ?>
@@ -203,19 +219,24 @@
 								<td class="ecwp-actions">
 									<a href="<?php echo admin_url( "admin.php?page=ecwp-subscribers&action=edit&subscriber_id={$sub->id}" ); ?>"
 									   class="ecwp-btn ecwp-btn-secondary ecwp-btn-sm">Edit</a>
-									<form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>"
-									      class="ecwp-confirm-form" data-confirm="Remove this subscriber?">
-										<input type="hidden" name="action"        value="ecwp_delete_subscriber">
-										<input type="hidden" name="subscriber_id" value="<?php echo $sub->id; ?>">
-										<?php wp_nonce_field( 'ecwp_delete_subscriber' ); ?>
-										<button type="submit" class="ecwp-btn ecwp-btn-danger ecwp-btn-sm">Delete</button>
-									</form>
+									<!-- Delete uses a shared form below — no nested form here -->
+									<button type="button"
+									        class="ecwp-btn ecwp-btn-danger ecwp-btn-sm"
+									        onclick="ecwpDeleteSub(<?php echo (int) $sub->id; ?>)">Delete</button>
 								</td>
 							</tr>
 						<?php endforeach; ?>
 						</tbody>
 					</table>
+				</form><!-- end #ecwp-bulk-tag-form -->
+
+				<!-- Shared delete form — sits OUTSIDE the bulk-tag form to prevent HTML nesting violation -->
+				<form id="ecwp-delete-sub-form" method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>" style="display:none;">
+					<input type="hidden" name="action"        value="ecwp_delete_subscriber">
+					<input type="hidden" name="subscriber_id" id="ecwp-delete-sub-id"    value="">
+					<input type="hidden" name="_wpnonce"      id="ecwp-delete-sub-nonce" value="<?php echo wp_create_nonce( 'ecwp_delete_subscriber' ); ?>">
 				</form>
+
 			<?php endif; ?>
 		</div>
 	</div>
@@ -227,5 +248,11 @@
 <script>
 function ecwpToggleAll(cb) {
 	document.querySelectorAll('.ecwp-sub-check').forEach(function(c){ c.checked = cb.checked; });
+}
+
+function ecwpDeleteSub(id) {
+	if ( ! confirm( 'Remove this subscriber? This cannot be undone.' ) ) { return; }
+	document.getElementById('ecwp-delete-sub-id').value = id;
+	document.getElementById('ecwp-delete-sub-form').submit();
 }
 </script>

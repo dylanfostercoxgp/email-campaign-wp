@@ -318,8 +318,14 @@ class ECWP_Admin {
 		$email = sanitize_email( $_POST['email'] ?? '' );
 		$fn    = sanitize_text_field( $_POST['first_name'] ?? '' );
 		$ln    = sanitize_text_field( $_POST['last_name'] ?? '' );
+		$extra = [
+			'phone'   => $_POST['phone']   ?? '',
+			'address' => $_POST['address'] ?? '',
+			'website' => $_POST['website'] ?? '',
+			'notes'   => $_POST['notes']   ?? '',
+		];
 
-		$result = ( new ECWP_Subscribers() )->add( $email, $fn, $ln );
+		$result = ( new ECWP_Subscribers() )->add( $email, $fn, $ln, $extra );
 		if ( is_wp_error( $result ) ) {
 			wp_redirect( admin_url( 'admin.php?page=ecwp-subscribers&add_error=' . urlencode( $result->get_error_message() ) ) );
 		} else {
@@ -347,6 +353,10 @@ class ECWP_Admin {
 			'first_name' => $_POST['first_name'] ?? '',
 			'last_name'  => $_POST['last_name']  ?? '',
 			'status'     => $_POST['status']     ?? 'active',
+			'phone'      => $_POST['phone']      ?? '',
+			'address'    => $_POST['address']    ?? '',
+			'website'    => $_POST['website']    ?? '',
+			'notes'      => $_POST['notes']      ?? '',
 		] );
 		if ( is_wp_error( $result ) ) {
 			wp_redirect( admin_url( "admin.php?page=ecwp-subscribers&action=edit&subscriber_id={$id}&edit_error=" . urlencode( $result->get_error_message() ) ) );

@@ -54,6 +54,29 @@
 						</div>
 					</div>
 					<div class="ecwp-field">
+						<label for="sub_phone">Phone</label>
+						<input type="text" id="sub_phone" name="phone"
+						       value="<?php echo esc_attr( $subscriber->phone ?? '' ); ?>"
+						       class="ecwp-input" placeholder="Optional">
+					</div>
+					<div class="ecwp-field">
+						<label for="sub_address">Address</label>
+						<input type="text" id="sub_address" name="address"
+						       value="<?php echo esc_attr( $subscriber->address ?? '' ); ?>"
+						       class="ecwp-input" placeholder="Optional">
+					</div>
+					<div class="ecwp-field">
+						<label for="sub_website">Website URL</label>
+						<input type="url" id="sub_website" name="website"
+						       value="<?php echo esc_attr( $subscriber->website ?? '' ); ?>"
+						       class="ecwp-input" placeholder="https://example.com (Optional)">
+					</div>
+					<div class="ecwp-field">
+						<label for="sub_notes">Notes</label>
+						<textarea id="sub_notes" name="notes" class="ecwp-input" rows="3"
+						          placeholder="Optional notes about this contact"><?php echo esc_textarea( $subscriber->notes ?? '' ); ?></textarea>
+					</div>
+					<div class="ecwp-field">
 						<label for="sub_status">Status</label>
 						<select id="sub_status" name="status" class="ecwp-input ecwp-input-sm">
 							<option value="active"       <?php selected( $subscriber->status, 'active' ); ?>>Active</option>

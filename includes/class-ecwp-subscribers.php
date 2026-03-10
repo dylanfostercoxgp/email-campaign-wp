@@ -51,8 +51,13 @@ class ECWP_Subscribers {
 
 	/**
 	 * Add a single subscriber. Returns insert ID or WP_Error.
+	 *
+	 * @param string $email
+	 * @param string $first_name
+	 * @param string $last_name
+	 * @param array  $extra  Optional keys: phone, address, website, notes
 	 */
-	public function add( $email, $first_name = '', $last_name = '' ) {
+	public function add( $email, $first_name = '', $last_name = '', $extra = [] ) {
 		global $wpdb;
 
 		$email = sanitize_email( $email );
@@ -64,12 +69,19 @@ class ECWP_Subscribers {
 			return new WP_Error( 'duplicate_email', "Already exists: {$email}" );
 		}
 
-		$result = $wpdb->insert( $this->table, [
+		$row = [
 			'email'      => $email,
 			'first_name' => sanitize_text_field( $first_name ),
 			'last_name'  => sanitize_text_field( $last_name ),
 			'status'     => 'active',
-		] );
+		];
+
+		if ( isset( $extra['phone'] ) )   { $row['phone']   = sanitize_text_field( $extra['phone'] ); }
+		if ( isset( $extra['address'] ) ) { $row['address'] = sanitize_textarea_field( $extra['address'] ); }
+		if ( isset( $extra['website'] ) ) { $row['website'] = esc_url_raw( $extra['website'] ); }
+		if ( isset( $extra['notes'] ) )   { $row['notes']   = sanitize_textarea_field( $extra['notes'] ); }
+
+		$result = $wpdb->insert( $this->table, $row );
 
 		return ( $result === false ) ? new WP_Error( 'db_error', 'Database insert failed.' ) : $wpdb->insert_id;
 	}
@@ -83,8 +95,8 @@ class ECWP_Subscribers {
 	 * Does NOT change the subscriber's tags — use ECWP_Tags::set_subscriber_tags().
 	 *
 	 * @param int    $id
-	 * @param array  $data  Keys: email, first_name, last_name, status
-	 * @return int|false  Rows updated, or false on failure.
+	 * @param array  $data  Keys: email, first_name, last_name, status, phone, address, website, notes
+	 * @return int|WP_Error  Rows updated, or WP_Error on failure.
 	 */
 	public function update( $id, array $data ) {
 		global $wpdb;
@@ -104,12 +116,13 @@ class ECWP_Subscribers {
 			$allowed['email'] = $email;
 		}
 
-		if ( isset( $data['first_name'] ) ) {
-			$allowed['first_name'] = sanitize_text_field( $data['first_name'] );
-		}
-		if ( isset( $data['last_name'] ) ) {
-			$allowed['last_name'] = sanitize_text_field( $data['last_name'] );
-		}
+		if ( isset( $data['first_name'] ) ) { $allowed['first_name'] = sanitize_text_field( $data['first_name'] ); }
+		if ( isset( $data['last_name'] ) )  { $allowed['last_name']  = sanitize_text_field( $data['last_name'] ); }
+		if ( isset( $data['phone'] ) )      { $allowed['phone']      = sanitize_text_field( $data['phone'] ); }
+		if ( isset( $data['address'] ) )    { $allowed['address']    = sanitize_textarea_field( $data['address'] ); }
+		if ( isset( $data['website'] ) )    { $allowed['website']    = esc_url_raw( $data['website'] ); }
+		if ( isset( $data['notes'] ) )      { $allowed['notes']      = sanitize_textarea_field( $data['notes'] ); }
+
 		if ( isset( $data['status'] ) && in_array( $data['status'], [ 'active', 'unsubscribed' ], true ) ) {
 			$allowed['status'] = $data['status'];
 			if ( $data['status'] === 'unsubscribed' ) {
