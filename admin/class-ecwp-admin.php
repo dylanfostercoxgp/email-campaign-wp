@@ -640,6 +640,17 @@ class ECWP_Admin {
 		if ( ! current_user_can( 'manage_options' ) || ! check_admin_referer( 'ecwp_test_mailgun' ) ) {
 			wp_die( 'Unauthorized' );
 		}
+		// Save the credentials passed with the test request so ECWP_Mailgun()
+		// can read them from options — even if the user hasn't hit Save Settings yet.
+		if ( isset( $_POST['ecwp_mailgun_api_key'] ) ) {
+			update_option( 'ecwp_mailgun_api_key', sanitize_text_field( $_POST['ecwp_mailgun_api_key'] ) );
+		}
+		if ( isset( $_POST['ecwp_mailgun_domain'] ) ) {
+			update_option( 'ecwp_mailgun_domain', sanitize_text_field( $_POST['ecwp_mailgun_domain'] ) );
+		}
+		if ( isset( $_POST['ecwp_mailgun_region'] ) ) {
+			update_option( 'ecwp_mailgun_region', sanitize_text_field( $_POST['ecwp_mailgun_region'] ) );
+		}
 		$result = ( new ECWP_Mailgun() )->test_connection();
 		if ( is_wp_error( $result ) ) {
 			wp_redirect( admin_url( 'admin.php?page=ecwp-settings&conn_error=' . urlencode( $result->get_error_message() ) ) );

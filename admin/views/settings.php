@@ -20,7 +20,13 @@
 		<div class="ecwp-notice ecwp-notice-error">❌ Mailgun connection failed: <?php echo esc_html( urldecode( $_GET['conn_error'] ) ); ?></div>
 	<?php endif; ?>
 
-	<form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>">
+	<!-- ═══════════════════════════════════════════════════════════════════
+	     Main settings form — wraps ALL setting fields.
+	     Test Connection and Send Test Email use SEPARATE forms placed
+	     below this closing </form> tag to avoid the HTML nested-form
+	     violation that silently breaks all form submissions on this page.
+	     ═══════════════════════════════════════════════════════════════════ -->
+	<form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>" id="ecwp-settings-form">
 		<input type="hidden" name="action" value="ecwp_save_settings">
 		<?php wp_nonce_field( 'ecwp_save_settings' ); ?>
 
@@ -59,12 +65,10 @@
 							<option value="eu" <?php selected( get_option( 'ecwp_mailgun_region', 'us' ), 'eu' ); ?>>EU (api.eu.mailgun.net)</option>
 						</select>
 					</div>
+					<!-- Test Connection — button only; the actual form is outside this form below -->
 					<div style="display:flex;gap:8px;margin-top:8px;">
-						<form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>" style="display:inline;">
-							<input type="hidden" name="action" value="ecwp_test_mailgun">
-							<?php wp_nonce_field( 'ecwp_test_mailgun' ); ?>
-							<button type="submit" class="ecwp-btn ecwp-btn-secondary ecwp-btn-sm">Test Connection</button>
-						</form>
+						<button type="button" class="ecwp-btn ecwp-btn-secondary ecwp-btn-sm"
+						        onclick="ecwpTestConnection()">Test Connection</button>
 					</div>
 				</div>
 			</div>
@@ -169,21 +173,22 @@
 				</div>
 			</div>
 
-			<!-- Test Email -->
+			<!-- Send Test Email — button triggers a hidden form outside this form -->
 			<div class="ecwp-card">
 				<div class="ecwp-card-header">
 					<span class="dashicons dashicons-email-alt"></span> Send Test Email
 				</div>
 				<div class="ecwp-card-body">
-					<form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>" style="display:flex;gap:8px;align-items:flex-end;">
-						<input type="hidden" name="action" value="ecwp_send_test">
-						<?php wp_nonce_field( 'ecwp_send_test' ); ?>
+					<div style="display:flex;gap:8px;align-items:flex-end;">
 						<div class="ecwp-field" style="flex:1;margin:0;">
 							<label for="test_email">Recipient Email</label>
-							<input type="email" id="test_email" name="test_email" class="ecwp-input" placeholder="you@example.com" value="<?php echo esc_attr( get_option( 'ecwp_from_email', '' ) ); ?>" required>
+							<input type="email" id="test_email" class="ecwp-input"
+							       placeholder="you@example.com"
+							       value="<?php echo esc_attr( get_option( 'ecwp_from_email', '' ) ); ?>" required>
 						</div>
-						<button type="submit" class="ecwp-btn ecwp-btn-secondary">Send Test</button>
-					</form>
+						<button type="button" class="ecwp-btn ecwp-btn-secondary"
+						        onclick="ecwpSendTest()">Send Test</button>
+					</div>
 				</div>
 			</div>
 
@@ -216,6 +221,32 @@
 		<div class="ecwp-form-actions">
 			<button type="submit" class="ecwp-btn ecwp-btn-primary ecwp-btn-lg">Save Settings</button>
 		</div>
+	</form><!-- end #ecwp-settings-form -->
+
+	<!-- ═══════════════════════════════════════════════════════════════════
+	     Standalone forms — OUTSIDE the main settings form so they never
+	     collide with it. JS onclick handlers copy current field values
+	     into hidden inputs and submit the correct form.
+	     ═══════════════════════════════════════════════════════════════════ -->
+
+	<!-- Test Connection form -->
+	<form id="ecwp-test-conn-form" method="post"
+	      action="<?php echo admin_url( 'admin-post.php' ); ?>"
+	      style="display:none;">
+		<input type="hidden" name="action"               value="ecwp_test_mailgun">
+		<input type="hidden" name="ecwp_mailgun_api_key" id="ecwp-tc-api-key">
+		<input type="hidden" name="ecwp_mailgun_domain"  id="ecwp-tc-domain">
+		<input type="hidden" name="ecwp_mailgun_region"  id="ecwp-tc-region">
+		<?php wp_nonce_field( 'ecwp_test_mailgun' ); ?>
+	</form>
+
+	<!-- Send Test Email form -->
+	<form id="ecwp-send-test-form" method="post"
+	      action="<?php echo admin_url( 'admin-post.php' ); ?>"
+	      style="display:none;">
+		<input type="hidden" name="action"      value="ecwp_send_test">
+		<input type="hidden" name="test_email"  id="ecwp-st-email">
+		<?php wp_nonce_field( 'ecwp_send_test' ); ?>
 	</form>
 
 	<div class="ecwp-footer">
@@ -223,3 +254,41 @@
 		by <a href="https://ideaboss.io" target="_blank">ideaBoss</a>
 	</div>
 </div>
+
+<script>
+/**
+ * Test Connection — copies the current (possibly unsaved) API key, domain
+ * and region into the standalone test form and submits it.
+ * The handler saves these values first, then tests, so this also acts as
+ * a save for the Mailgun credentials section.
+ */
+function ecwpTestConnection() {
+	var apiKey = document.getElementById('ecwp_mailgun_api_key');
+	var domain = document.getElementById('ecwp_mailgun_domain');
+	var region = document.getElementById('ecwp_mailgun_region');
+
+	if ( ! apiKey.value.trim() || ! domain.value.trim() ) {
+		alert('Please enter your Mailgun API key and sending domain before testing.');
+		return;
+	}
+
+	document.getElementById('ecwp-tc-api-key').value = apiKey.value;
+	document.getElementById('ecwp-tc-domain').value  = domain.value;
+	document.getElementById('ecwp-tc-region').value  = region.value;
+	document.getElementById('ecwp-test-conn-form').submit();
+}
+
+/**
+ * Send Test Email — copies the recipient address into the standalone
+ * send-test form and submits it.
+ */
+function ecwpSendTest() {
+	var email = document.getElementById('test_email');
+	if ( ! email.value.trim() ) {
+		alert('Please enter a recipient email address.');
+		return;
+	}
+	document.getElementById('ecwp-st-email').value = email.value;
+	document.getElementById('ecwp-send-test-form').submit();
+}
+</script>
