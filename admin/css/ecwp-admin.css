@@ -425,3 +425,85 @@
 }
 .ecwp-footer a { color: var(--ecwp-primary); text-decoration: none; }
 .ecwp-footer a:hover { text-decoration: underline; }
+
+/* ── Template grid (library page) ────────────────────── */
+.ecwp-template-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+	gap: 16px;
+}
+.ecwp-template-card {
+	border: 1px solid var(--ecwp-border);
+	border-radius: var(--ecwp-radius);
+	overflow: hidden;
+	background: #fff;
+	box-shadow: var(--ecwp-shadow);
+	transition: box-shadow .15s;
+}
+.ecwp-template-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+.ecwp-template-thumb {
+	height: 100px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.ecwp-template-info {
+	padding: 10px 12px 6px;
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+}
+.ecwp-template-info strong { font-size: 13px; }
+.ecwp-template-info .ecwp-hint { font-size: 11px; }
+.ecwp-template-actions {
+	padding: 8px 12px 12px;
+	display: flex;
+	gap: 6px;
+}
+
+/* ── Template mini-grid (campaign form) ──────────────── */
+.ecwp-template-mini-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+.ecwp-template-mini-card {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+	padding: 8px;
+	border: 2px solid var(--ecwp-border);
+	border-radius: var(--ecwp-radius);
+	cursor: pointer;
+	width: 80px;
+	font-size: 11px;
+	text-align: center;
+	transition: border-color .15s;
+	background: #fff;
+}
+.ecwp-template-mini-card:hover { border-color: var(--ecwp-primary); }
+.ecwp-template-mini-card.selected { border-color: var(--ecwp-primary); background: #eff6ff; }
+.ecwp-template-mini-icon {
+	width: 40px;
+	height: 40px;
+	border-radius: 8px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 20px;
+}
+
+/* ── Tag color dot ────────────────────────────────────── */
+.ecwp-tag-dot {
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	vertical-align: middle;
+}
+
+/* ── HTML editor layout ───────────────────────────────── */
+.ecwp-tab-pane { margin-top: 16px; }
+.CodeMirror { height: 600px !important; font-size: 13px !important; border-radius: 0 0 var(--ecwp-radius) var(--ecwp-radius); }

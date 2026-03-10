@@ -1,4 +1,10 @@
 <?php
+/**
+ * Scheduling, batch sending, and personalization.
+ *
+ * @package EmailCampaignWP
+ */
+
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 class ECWP_Scheduler {
@@ -17,7 +23,9 @@ class ECWP_Scheduler {
 		add_action( 'update_option_ecwp_schedule_enabled', [ $this, 'reschedule_daily_trigger' ] );
 	}
 
-	// ── Cron scheduling ────────────────────────────────────────────────────
+	/* ------------------------------------------------------------------ */
+	/*  Cron scheduling                                                     */
+	/* ------------------------------------------------------------------ */
 
 	public function schedule_daily_trigger() {
 		if ( get_option( 'ecwp_schedule_enabled', '0' ) !== '1' ) {
@@ -28,9 +36,9 @@ class ECWP_Scheduler {
 		list( $hour, $minute ) = array_pad( explode( ':', $send_time ), 2, '00' );
 
 		// Calculate next occurrence of the target time in site local time.
-		$site_tz    = wp_timezone();
-		$now        = new DateTime( 'now', $site_tz );
-		$target     = clone $now;
+		$site_tz = wp_timezone();
+		$now     = new DateTime( 'now', $site_tz );
+		$target  = clone $now;
 		$target->setTime( (int) $hour, (int) $minute, 0 );
 
 		if ( $target <= $now ) {
@@ -45,7 +53,9 @@ class ECWP_Scheduler {
 		$this->schedule_daily_trigger();
 	}
 
-	// ── Daily trigger: fire all scheduled campaigns ────────────────────────
+	/* ------------------------------------------------------------------ */
+	/*  Daily trigger: fire all scheduled campaigns                         */
+	/* ------------------------------------------------------------------ */
 
 	public function run_daily_trigger() {
 		if ( get_option( 'ecwp_schedule_enabled', '0' ) !== '1' ) {
@@ -63,24 +73,42 @@ class ECWP_Scheduler {
 		}
 	}
 
-	// ── Core sending logic ─────────────────────────────────────────────────
+	/* ------------------------------------------------------------------ */
+	/*  Core sending logic                                                  */
+	/* ------------------------------------------------------------------ */
 
 	public function start_campaign_sending( $campaign_id ) {
-		$campaigns = new ECWP_Campaigns();
-		$campaign  = $campaigns->get_by_id( $campaign_id );
+		$campaigns_class = new ECWP_Campaigns();
+		$campaign        = $campaigns_class->get_by_id( $campaign_id );
 
 		if ( ! $campaign ) {
 			return;
 		}
 
-		$campaigns->update( $campaign_id, [ 'status' => 'sending' ] );
+		// ── Resolve target audience based on target_type ──────────────
+		switch ( $campaign->target_type ) {
+			case 'tags':
+				$tag_ids = $campaigns_class->get_target_tag_ids( $campaign );
+				if ( ! empty( $tag_ids ) ) {
+					$campaigns_class->assign_subscribers_by_tags( $campaign_id, $tag_ids );
+				}
+				break;
 
-		$subscribers    = $campaigns->get_unsent_subscribers( $campaign_id );
+			case 'all':
+				$campaigns_class->assign_all_subscribers( $campaign_id );
+				break;
+
+			// 'selected' keeps whatever is already in the junction table.
+		}
+
+		$campaigns_class->update( $campaign_id, [ 'status' => 'sending' ] );
+
+		$subscribers    = $campaigns_class->get_unsent_subscribers( $campaign_id );
 		$batch_size     = max( 1, (int) $campaign->batch_size );
 		$batch_interval = max( 1, (int) $campaign->batch_interval );
 
 		if ( empty( $subscribers ) ) {
-			$campaigns->update( $campaign_id, [ 'status' => 'sent' ] );
+			$campaigns_class->update( $campaign_id, [ 'status' => 'sent' ] );
 			return;
 		}
 
@@ -109,13 +137,13 @@ class ECWP_Scheduler {
 	 *
 	 * @param int   $campaign_id
 	 * @param array $subscriber_ids
-	 * @param int   $batch_number  (1-based, for logging / tags)
+	 * @param int   $batch_number  (1-based, for logging)
 	 */
 	public function send_batch( $campaign_id, $subscriber_ids, $batch_number ) {
 		global $wpdb;
 
-		$campaigns = new ECWP_Campaigns();
-		$campaign  = $campaigns->get_by_id( $campaign_id );
+		$campaigns_class = new ECWP_Campaigns();
+		$campaign        = $campaigns_class->get_by_id( $campaign_id );
 
 		if ( ! $campaign || $campaign->status === 'paused' ) {
 			return;
@@ -182,12 +210,14 @@ class ECWP_Scheduler {
 		) );
 
 		// If nothing left to send, mark as complete.
-		if ( empty( $campaigns->get_unsent_subscribers( $campaign_id ) ) ) {
-			$campaigns->update( $campaign_id, [ 'status' => 'sent' ] );
+		if ( empty( $campaigns_class->get_unsent_subscribers( $campaign_id ) ) ) {
+			$campaigns_class->update( $campaign_id, [ 'status' => 'sent' ] );
 		}
 	}
 
-	// ── Personalization ────────────────────────────────────────────────────
+	/* ------------------------------------------------------------------ */
+	/*  Personalization                                                     */
+	/* ------------------------------------------------------------------ */
 
 	private function personalize( $html, $subscriber, $campaign_id ) {
 		$unsubscribe_url  = $this->build_unsubscribe_url( $subscriber->email );

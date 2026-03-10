@@ -1,4 +1,10 @@
 <?php
+/**
+ * Campaign CRUD, subscriber assignment, tag-targeting, and send-log queries.
+ *
+ * @package EmailCampaignWP
+ */
+
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 class ECWP_Campaigns {
@@ -12,6 +18,10 @@ class ECWP_Campaigns {
 		$this->junction = $wpdb->prefix . 'ecwp_campaign_subscribers';
 	}
 
+	/* ------------------------------------------------------------------ */
+	/*  Read                                                                */
+	/* ------------------------------------------------------------------ */
+
 	public function get_all( $status = 'all' ) {
 		global $wpdb;
 		$where = ( $status !== 'all' ) ? $wpdb->prepare( ' WHERE status = %s', $status ) : '';
@@ -23,14 +33,20 @@ class ECWP_Campaigns {
 		return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$this->table} WHERE id = %d", $id ) );
 	}
 
+	/* ------------------------------------------------------------------ */
+	/*  Create                                                              */
+	/* ------------------------------------------------------------------ */
+
 	public function create( array $data ) {
 		global $wpdb;
 
 		$result = $wpdb->insert( $this->table, [
 			'name'             => sanitize_text_field( $data['name'] ?? '' ),
 			'subject'          => sanitize_text_field( $data['subject'] ?? '' ),
-			'html_content'     => $data['html_content'] ?? '',
+			'html_content'     => wp_kses_post( $data['html_content'] ?? '' ),
 			'status'           => 'draft',
+			'target_type'      => in_array( $data['target_type'] ?? 'all', [ 'all', 'tags', 'selected' ], true ) ? $data['target_type'] : 'all',
+			'target_tags'      => sanitize_text_field( $data['target_tags'] ?? '' ),
 			'send_time'        => sanitize_text_field( $data['send_time'] ?? '10:00' ),
 			'schedule_enabled' => isset( $data['schedule_enabled'] ) ? 1 : 0,
 			'batch_size'       => max( 1, intval( $data['batch_size'] ?? 10 ) ),
@@ -40,26 +56,29 @@ class ECWP_Campaigns {
 		return ( $result === false ) ? new WP_Error( 'db_error', 'Failed to create campaign.' ) : $wpdb->insert_id;
 	}
 
+	/* ------------------------------------------------------------------ */
+	/*  Update                                                              */
+	/* ------------------------------------------------------------------ */
+
 	public function update( $id, array $data ) {
 		global $wpdb;
 		$set = [];
 
-		$map = [
-			'name'             => 'sanitize_text_field',
-			'subject'          => 'sanitize_text_field',
-			'html_content'     => null,
-			'status'           => 'sanitize_text_field',
-			'send_time'        => 'sanitize_text_field',
-			'schedule_enabled' => 'intval',
-			'batch_size'       => 'intval',
-			'batch_interval'   => 'intval',
-		];
+		$string_fields = [ 'name', 'subject', 'status', 'send_time', 'target_type', 'target_tags' ];
+		$int_fields    = [ 'schedule_enabled', 'batch_size', 'batch_interval' ];
 
-		foreach ( $map as $key => $sanitizer ) {
-			if ( ! isset( $data[ $key ] ) ) {
-				continue;
+		foreach ( $string_fields as $key ) {
+			if ( isset( $data[ $key ] ) ) {
+				$set[ $key ] = sanitize_text_field( $data[ $key ] );
 			}
-			$set[ $key ] = $sanitizer ? call_user_func( $sanitizer, $data[ $key ] ) : $data[ $key ];
+		}
+		foreach ( $int_fields as $key ) {
+			if ( isset( $data[ $key ] ) ) {
+				$set[ $key ] = intval( $data[ $key ] );
+			}
+		}
+		if ( isset( $data['html_content'] ) ) {
+			$set['html_content'] = wp_kses_post( $data['html_content'] );
 		}
 
 		$set['updated_at'] = current_time( 'mysql' );
@@ -67,25 +86,37 @@ class ECWP_Campaigns {
 		return $wpdb->update( $this->table, $set, [ 'id' => $id ] );
 	}
 
+	/* ------------------------------------------------------------------ */
+	/*  Delete                                                              */
+	/* ------------------------------------------------------------------ */
+
 	public function delete( $id ) {
 		global $wpdb;
 		$wpdb->delete( $this->junction, [ 'campaign_id' => $id ], [ '%d' ] );
 		return $wpdb->delete( $this->table, [ 'id' => $id ], [ '%d' ] );
 	}
 
-	// ── Subscriber assignment ─────────────────────────────────────────────
+	/* ------------------------------------------------------------------ */
+	/*  Subscriber Assignment                                               */
+	/* ------------------------------------------------------------------ */
 
+	/**
+	 * Replace the manual subscriber list for a campaign.
+	 */
 	public function assign_subscribers( $campaign_id, array $subscriber_ids ) {
 		global $wpdb;
 		$wpdb->delete( $this->junction, [ 'campaign_id' => $campaign_id ], [ '%d' ] );
 		foreach ( $subscriber_ids as $sid ) {
 			$wpdb->insert( $this->junction, [
-				'campaign_id'   => $campaign_id,
-				'subscriber_id' => intval( $sid ),
+				'campaign_id'   => (int) $campaign_id,
+				'subscriber_id' => (int) $sid,
 			] );
 		}
 	}
 
+	/**
+	 * Populate the junction table with all currently-active subscribers.
+	 */
 	public function assign_all_subscribers( $campaign_id ) {
 		global $wpdb;
 		$sub_table = $wpdb->prefix . 'ecwp_subscribers';
@@ -95,12 +126,35 @@ class ECWP_Campaigns {
 		$ids = $wpdb->get_col( "SELECT id FROM {$sub_table} WHERE status = 'active'" );
 		foreach ( $ids as $sid ) {
 			$wpdb->insert( $this->junction, [
-				'campaign_id'   => $campaign_id,
-				'subscriber_id' => intval( $sid ),
+				'campaign_id'   => (int) $campaign_id,
+				'subscriber_id' => (int) $sid,
 			] );
 		}
 		return count( $ids );
 	}
+
+	/**
+	 * Populate the junction table from tag-based targeting.
+	 * Resolves subscriber IDs for the given tags and stores them.
+	 */
+	public function assign_subscribers_by_tags( $campaign_id, array $tag_ids ) {
+		global $wpdb;
+		$tags = new ECWP_Tags();
+		$ids  = $tags->get_subscriber_ids_by_tags( $tag_ids );
+
+		$wpdb->delete( $this->junction, [ 'campaign_id' => $campaign_id ], [ '%d' ] );
+		foreach ( $ids as $sid ) {
+			$wpdb->insert( $this->junction, [
+				'campaign_id'   => (int) $campaign_id,
+				'subscriber_id' => (int) $sid,
+			] );
+		}
+		return count( $ids );
+	}
+
+	/* ------------------------------------------------------------------ */
+	/*  Subscriber Queries                                                  */
+	/* ------------------------------------------------------------------ */
 
 	public function get_subscribers( $campaign_id ) {
 		global $wpdb;
@@ -141,5 +195,15 @@ class ECWP_Campaigns {
 			"SELECT COUNT(*) FROM {$this->junction} WHERE campaign_id = %d",
 			$campaign_id
 		) );
+	}
+
+	/**
+	 * Return the tag IDs associated with a campaign's target_tags column.
+	 */
+	public function get_target_tag_ids( $campaign ) {
+		if ( empty( $campaign->target_tags ) ) {
+			return [];
+		}
+		return array_filter( array_map( 'intval', explode( ',', $campaign->target_tags ) ) );
 	}
 }

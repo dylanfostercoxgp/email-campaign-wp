@@ -1,18 +1,30 @@
 <?php
+/**
+ * Subscriber CRUD, CSV import, unsubscribe, and tag-aware lookup.
+ *
+ * @package EmailCampaignWP
+ */
+
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 class ECWP_Subscribers {
 
 	private $table;
+	private $tag_pivot;
 
 	public function __construct() {
 		global $wpdb;
-		$this->table = $wpdb->prefix . 'ecwp_subscribers';
+		$this->table     = $wpdb->prefix . 'ecwp_subscribers';
+		$this->tag_pivot = $wpdb->prefix . 'ecwp_subscriber_tags';
 	}
+
+	/* ------------------------------------------------------------------ */
+	/*  Read                                                                */
+	/* ------------------------------------------------------------------ */
 
 	public function get_all( $status = 'all', $limit = 0, $offset = 0 ) {
 		global $wpdb;
-		$where = ( $status !== 'all' ) ? $wpdb->prepare( ' WHERE status = %s', $status ) : '';
+		$where        = ( $status !== 'all' ) ? $wpdb->prepare( ' WHERE status = %s', $status ) : '';
 		$limit_clause = $limit ? $wpdb->prepare( ' LIMIT %d OFFSET %d', $limit, $offset ) : '';
 		return $wpdb->get_results( "SELECT * FROM {$this->table}{$where} ORDER BY subscribed_at DESC{$limit_clause}" );
 	}
@@ -32,6 +44,10 @@ class ECWP_Subscribers {
 		global $wpdb;
 		return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$this->table} WHERE email = %s", $email ) );
 	}
+
+	/* ------------------------------------------------------------------ */
+	/*  Create                                                              */
+	/* ------------------------------------------------------------------ */
 
 	/**
 	 * Add a single subscriber. Returns insert ID or WP_Error.
@@ -58,13 +74,73 @@ class ECWP_Subscribers {
 		return ( $result === false ) ? new WP_Error( 'db_error', 'Database insert failed.' ) : $wpdb->insert_id;
 	}
 
+	/* ------------------------------------------------------------------ */
+	/*  Update                                                              */
+	/* ------------------------------------------------------------------ */
+
+	/**
+	 * Edit an existing subscriber's details.
+	 * Does NOT change the subscriber's tags — use ECWP_Tags::set_subscriber_tags().
+	 *
+	 * @param int    $id
+	 * @param array  $data  Keys: email, first_name, last_name, status
+	 * @return int|false  Rows updated, or false on failure.
+	 */
+	public function update( $id, array $data ) {
+		global $wpdb;
+
+		$allowed = [];
+
+		if ( isset( $data['email'] ) ) {
+			$email = sanitize_email( $data['email'] );
+			if ( ! is_email( $email ) ) {
+				return new WP_Error( 'invalid_email', 'Invalid email address.' );
+			}
+			// Check uniqueness (exclude self)
+			$existing = $this->get_by_email( $email );
+			if ( $existing && (int) $existing->id !== (int) $id ) {
+				return new WP_Error( 'duplicate_email', 'That email already belongs to another subscriber.' );
+			}
+			$allowed['email'] = $email;
+		}
+
+		if ( isset( $data['first_name'] ) ) {
+			$allowed['first_name'] = sanitize_text_field( $data['first_name'] );
+		}
+		if ( isset( $data['last_name'] ) ) {
+			$allowed['last_name'] = sanitize_text_field( $data['last_name'] );
+		}
+		if ( isset( $data['status'] ) && in_array( $data['status'], [ 'active', 'unsubscribed' ], true ) ) {
+			$allowed['status'] = $data['status'];
+			if ( $data['status'] === 'unsubscribed' ) {
+				$allowed['unsubscribed_at'] = current_time( 'mysql' );
+			}
+		}
+
+		if ( empty( $allowed ) ) {
+			return 0;
+		}
+
+		return $wpdb->update( $this->table, $allowed, [ 'id' => $id ], null, [ '%d' ] );
+	}
+
+	/* ------------------------------------------------------------------ */
+	/*  Delete                                                              */
+	/* ------------------------------------------------------------------ */
+
 	public function delete( $id ) {
 		global $wpdb;
+		// Also remove tag assignments
+		$wpdb->delete( $this->tag_pivot, [ 'subscriber_id' => $id ], [ '%d' ] );
 		return $wpdb->delete( $this->table, [ 'id' => $id ], [ '%d' ] );
 	}
 
+	/* ------------------------------------------------------------------ */
+	/*  Unsubscribe                                                         */
+	/* ------------------------------------------------------------------ */
+
 	/**
-	 * Mark a subscriber as unsubscribed and update WP user meta.
+	 * Mark a subscriber as unsubscribed and mirror to WP user meta.
 	 */
 	public function unsubscribe( $email ) {
 		global $wpdb;
@@ -87,10 +163,14 @@ class ECWP_Subscribers {
 		return $result;
 	}
 
+	/* ------------------------------------------------------------------ */
+	/*  CSV Import                                                          */
+	/* ------------------------------------------------------------------ */
+
 	/**
 	 * Bulk-import subscribers from a CSV file.
 	 * CSV must have at minimum an "email" column.
-	 * Optional: first_name, last_name.
+	 * Optional columns: first_name, last_name.
 	 *
 	 * @return array|WP_Error  [ 'imported', 'skipped', 'errors' ]
 	 */
@@ -158,5 +238,15 @@ class ECWP_Subscribers {
 
 		fclose( $handle );
 		return $results;
+	}
+
+	/* ------------------------------------------------------------------ */
+	/*  Helper: return IDs only                                             */
+	/* ------------------------------------------------------------------ */
+
+	public function get_all_ids( $status = 'active' ) {
+		global $wpdb;
+		$where = $wpdb->prepare( ' WHERE status = %s', $status );
+		return $wpdb->get_col( "SELECT id FROM {$this->table}{$where}" );
 	}
 }
