@@ -245,13 +245,13 @@ $assigned_ids = array_column( (array) $campaign_subscribers, 'id' );
 				<div class="ecwp-card">
 					<div class="ecwp-card-header"><span class="dashicons dashicons-trash"></span> Danger Zone</div>
 					<div class="ecwp-card-body">
-						<form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>"
-						      class="ecwp-confirm-form" data-confirm="Permanently delete this campaign?">
-							<input type="hidden" name="action"      value="ecwp_delete_campaign">
-							<input type="hidden" name="campaign_id" value="<?php echo $campaign->id; ?>">
-							<?php wp_nonce_field( 'ecwp_delete_campaign' ); ?>
-							<button type="submit" class="ecwp-btn ecwp-btn-danger" style="width:100%;">Delete Campaign</button>
-						</form>
+						<!-- Delete button submits the standalone form placed OUTSIDE the edit form -->
+						<button type="button"
+						        class="ecwp-btn ecwp-btn-danger"
+						        style="width:100%;"
+						        onclick="if(confirm('Permanently delete this campaign?')){document.getElementById('ecwp-delete-form').submit();}">
+							Delete Campaign
+						</button>
 					</div>
 				</div>
 
@@ -269,6 +269,14 @@ $assigned_ids = array_column( (array) $campaign_subscribers, 'id' );
 				Schedule is ON — campaign will send automatically at the scheduled time.
 			</span>
 		</div>
+	</form>
+
+	<!-- ── Standalone delete form — OUTSIDE the main edit form ─────────────
+	     Keeps it separate so the main form's action/nonce are never polluted. -->
+	<form id="ecwp-delete-form" method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>" style="display:none;">
+		<input type="hidden" name="action"      value="ecwp_delete_campaign">
+		<input type="hidden" name="campaign_id" value="<?php echo $campaign->id; ?>">
+		<?php wp_nonce_field( 'ecwp_delete_campaign' ); ?>
 	</form>
 
 	<div class="ecwp-footer">
@@ -289,9 +297,11 @@ document.querySelectorAll('.ecwp-template-mini-card input').forEach(function(r) 
 });
 
 // ── Schedule-aware save button ─────────────────────────────────────────────
+// "Save Changes" is always visible so the user can save without sending.
+// "Save & Send Now" appears as an additional option when schedule is OFF.
+// The schedule hint appears when schedule is ON.
 function ecwpUpdateSaveButton() {
 	var schedEnabled = document.querySelector('input[name="schedule_enabled"]').checked;
-	document.getElementById('ecwp-btn-save').style.display      = schedEnabled ? '' : 'none';
 	document.getElementById('ecwp-btn-send-now').style.display  = schedEnabled ? 'none' : '';
 	document.getElementById('ecwp-schedule-hint').style.display = schedEnabled ? '' : 'none';
 }
