@@ -188,7 +188,7 @@ class ECWP_Subscribers {
 	 * @return array|WP_Error  [ 'imported', 'skipped', 'errors' ]
 	 */
 	public function import_csv( $file_path ) {
-		$results = [ 'imported' => 0, 'skipped' => 0, 'errors' => [] ];
+		$results = [ 'imported' => 0, 'skipped' => 0, 'errors' => [], 'new_ids' => [] ];
 
 		if ( ! file_exists( $file_path ) ) {
 			return new WP_Error( 'file_missing', 'CSV file not found.' );
@@ -246,6 +246,7 @@ class ECWP_Subscribers {
 				}
 			} else {
 				$results['imported']++;
+				$results['new_ids'][] = $result; // add() returns the new subscriber ID on success
 			}
 		}
 

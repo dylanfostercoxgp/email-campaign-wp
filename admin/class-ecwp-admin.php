@@ -300,13 +300,10 @@ class ECWP_Admin {
 			wp_redirect( admin_url( 'admin.php?page=ecwp-subscribers&import_error=' . urlencode( $result->get_error_message() ) ) );
 			exit;
 		}
-		// After import, bulk-tag if requested.
-		if ( ! empty( $_POST['import_tag_id'] ) ) {
-			$tag_id    = intval( $_POST['import_tag_id'] );
-			$subs      = new ECWP_Subscribers();
-			$tags      = new ECWP_Tags();
-			$all_ids   = $subs->get_all_ids( 'active' );
-			$tags->bulk_assign( $tag_id, $all_ids );
+		// After import, tag only the newly imported subscribers (not existing ones).
+		if ( ! empty( $_POST['import_tag_id'] ) && ! empty( $result['new_ids'] ) ) {
+			$tag_id = intval( $_POST['import_tag_id'] );
+			( new ECWP_Tags() )->bulk_assign( $tag_id, $result['new_ids'] );
 		}
 		wp_redirect( admin_url( "admin.php?page=ecwp-subscribers&imported={$result['imported']}&skipped={$result['skipped']}" ) );
 		exit;
@@ -389,13 +386,21 @@ class ECWP_Admin {
 		if ( ! current_user_can( 'manage_options' ) || ! check_admin_referer( 'ecwp_bulk_tag' ) ) {
 			wp_die( 'Unauthorized' );
 		}
+		$action = sanitize_text_field( $_POST['bulk_action'] ?? 'tag' );
 		$tag_id = intval( $_POST['bulk_tag_id'] ?? 0 );
 		$ids    = ! empty( $_POST['subscriber_ids'] ) ? array_map( 'intval', (array) $_POST['subscriber_ids'] ) : [];
-		if ( $tag_id && ! empty( $ids ) ) {
+
+		if ( ! $tag_id || empty( $ids ) ) {
+			wp_redirect( admin_url( 'admin.php?page=ecwp-subscribers&bulk_error=1' ) );
+			exit;
+		}
+
+		if ( $action === 'untag' ) {
+			( new ECWP_Tags() )->bulk_remove( $tag_id, $ids );
+			wp_redirect( admin_url( 'admin.php?page=ecwp-subscribers&bulk_untagged=' . count( $ids ) ) );
+		} else {
 			( new ECWP_Tags() )->bulk_assign( $tag_id, $ids );
 			wp_redirect( admin_url( 'admin.php?page=ecwp-subscribers&bulk_tagged=' . count( $ids ) ) );
-		} else {
-			wp_redirect( admin_url( 'admin.php?page=ecwp-subscribers&bulk_error=1' ) );
 		}
 		exit;
 	}

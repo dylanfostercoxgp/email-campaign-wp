@@ -116,6 +116,24 @@ class ECWP_Tags {
 	}
 
 	/**
+	 * Bulk-remove a tag from multiple subscribers at once.
+	 * @param  int   $tag_id
+	 * @param  array $subscriber_ids
+	 */
+	public function bulk_remove( $tag_id, array $subscriber_ids ) {
+		global $wpdb;
+		if ( empty( $subscriber_ids ) ) return;
+		$tag_id = intval( $tag_id );
+		foreach ( $subscriber_ids as $sid ) {
+			$wpdb->delete(
+				$this->sub_tags_table,
+				[ 'subscriber_id' => intval( $sid ), 'tag_id' => $tag_id ],
+				[ '%d', '%d' ]
+			);
+		}
+	}
+
+	/**
 	 * Get all active subscriber IDs that have ANY of the given tags.
 	 */
 	public function get_subscriber_ids_by_tags( array $tag_ids ) {

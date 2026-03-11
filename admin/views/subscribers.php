@@ -22,6 +22,9 @@
 	if ( isset( $_GET['bulk_tagged'] ) ) :
 		echo '<div class="ecwp-notice ecwp-notice-success">' . intval( $_GET['bulk_tagged'] ) . ' subscriber(s) tagged.</div>';
 	endif;
+	if ( isset( $_GET['bulk_untagged'] ) ) :
+		echo '<div class="ecwp-notice ecwp-notice-success">' . intval( $_GET['bulk_untagged'] ) . ' subscriber(s) untagged.</div>';
+	endif;
 	if ( isset( $_GET['import_error'] ) ) :
 		echo '<div class="ecwp-notice ecwp-notice-error">Import error: ' . esc_html( urldecode( $_GET['import_error'] ) ) . '</div>';
 	endif;
@@ -155,16 +158,21 @@
 					<input type="hidden" name="action" value="ecwp_bulk_tag">
 					<?php wp_nonce_field( 'ecwp_bulk_tag' ); ?>
 
+					<!-- Hidden field set by JS before submit so we know tag vs untag -->
+					<input type="hidden" name="bulk_action" id="ecwp-bulk-action" value="tag">
 					<div style="padding:10px 14px;background:#f9fafb;border-bottom:1px solid #e5e7eb;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-						<strong style="font-size:13px;">Bulk Tag:</strong>
 						<?php if ( ! empty( $all_tags ) ) : ?>
-							<select name="bulk_tag_id" class="ecwp-input ecwp-input-sm" style="width:auto;">
+							<strong style="font-size:13px;">Bulk actions:</strong>
+							<select name="bulk_tag_id" id="ecwp-bulk-tag-id" class="ecwp-input ecwp-input-sm" style="width:auto;">
 								<option value="">— Select tag —</option>
 								<?php foreach ( $all_tags as $tag ) : ?>
 									<option value="<?php echo $tag->id; ?>"><?php echo esc_html( $tag->name ); ?></option>
 								<?php endforeach; ?>
 							</select>
-							<button type="submit" class="ecwp-btn ecwp-btn-secondary ecwp-btn-sm">Apply to Selected</button>
+							<button type="button" class="ecwp-btn ecwp-btn-secondary ecwp-btn-sm"
+							        onclick="ecwpBulkSubmit('tag')">Add Tag to Selected</button>
+							<button type="button" class="ecwp-btn ecwp-btn-danger ecwp-btn-sm"
+							        onclick="ecwpBulkSubmit('untag')">Remove Tag from Selected</button>
 						<?php else : ?>
 							<span class="ecwp-hint">No tags. <a href="<?php echo admin_url( 'admin.php?page=ecwp-tags' ); ?>">Create tags</a> first.</span>
 						<?php endif; ?>
@@ -248,6 +256,21 @@
 <script>
 function ecwpToggleAll(cb) {
 	document.querySelectorAll('.ecwp-sub-check').forEach(function(c){ c.checked = cb.checked; });
+}
+
+function ecwpBulkSubmit(action) {
+	var tagSel = document.getElementById('ecwp-bulk-tag-id');
+	var checked = document.querySelectorAll('.ecwp-sub-check:checked');
+	if ( ! tagSel || ! tagSel.value ) {
+		alert('Please select a tag first.');
+		return;
+	}
+	if ( checked.length === 0 ) {
+		alert('Please select at least one subscriber.');
+		return;
+	}
+	document.getElementById('ecwp-bulk-action').value = action;
+	document.getElementById('ecwp-bulk-tag-form').submit();
 }
 
 function ecwpDeleteSub(id) {
