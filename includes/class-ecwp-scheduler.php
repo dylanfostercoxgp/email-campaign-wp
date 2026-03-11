@@ -10,8 +10,9 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 class ECWP_Scheduler {
 
 	public function init() {
-		add_action( 'ecwp_daily_trigger', [ $this, 'run_daily_trigger' ] );
-		add_action( 'ecwp_send_batch',    [ $this, 'send_batch' ], 10, 3 );
+		add_action( 'ecwp_daily_trigger',  [ $this, 'run_daily_trigger' ] );
+		add_action( 'ecwp_send_batch',     [ $this, 'send_batch' ], 10, 3 );
+		add_action( 'ecwp_fire_campaign',  [ $this, 'start_campaign_sending' ] );
 
 		// Ensure the daily trigger cron is registered.
 		if ( ! wp_next_scheduled( 'ecwp_daily_trigger' ) ) {
@@ -51,6 +52,50 @@ class ECWP_Scheduler {
 	public function reschedule_daily_trigger() {
 		wp_clear_scheduled_hook( 'ecwp_daily_trigger' );
 		$this->schedule_daily_trigger();
+	}
+
+	/* ------------------------------------------------------------------ */
+	/*  Per-campaign scheduling                                             */
+	/* ------------------------------------------------------------------ */
+
+	/**
+	 * Schedule a single-fire cron event for a campaign at its send_time.
+	 * If the send_time has already passed today, schedule for tomorrow.
+	 *
+	 * @param int    $campaign_id
+	 * @param string $send_time  "HH:MM" in site local time
+	 */
+	public function schedule_campaign( $campaign_id, $send_time ) {
+		// Remove any existing scheduled event for this campaign first.
+		$this->unschedule_campaign( $campaign_id );
+
+		list( $hour, $minute ) = array_pad( explode( ':', $send_time ), 2, '00' );
+
+		$site_tz = wp_timezone();
+		$now     = new DateTime( 'now', $site_tz );
+		$target  = clone $now;
+		$target->setTime( (int) $hour, (int) $minute, 0 );
+
+		// If the time has already passed today, schedule for tomorrow.
+		if ( $target <= $now ) {
+			$target->modify( '+1 day' );
+		}
+
+		wp_schedule_single_event( $target->getTimestamp(), 'ecwp_fire_campaign', [ $campaign_id ] );
+	}
+
+	/**
+	 * Remove a campaign's scheduled cron event.
+	 */
+	public function unschedule_campaign( $campaign_id ) {
+		wp_clear_scheduled_hook( 'ecwp_fire_campaign', [ $campaign_id ] );
+	}
+
+	/**
+	 * Return the next scheduled timestamp for a campaign, or false if none.
+	 */
+	public function get_next_run( $campaign_id ) {
+		return wp_next_scheduled( 'ecwp_fire_campaign', [ $campaign_id ] );
 	}
 
 	/* ------------------------------------------------------------------ */

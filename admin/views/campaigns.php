@@ -60,7 +60,15 @@ if ( ! function_exists( 'ecwp_status_badge' ) ) {
 									? '<span class="ecwp-badge ecwp-badge-green">On</span>'
 									: '<span class="ecwp-badge ecwp-badge-grey">Off</span>'; ?>
 							</td>
-							<td><?php echo ecwp_status_badge( $c->status ); ?></td>
+							<td>
+							<?php echo ecwp_status_badge( $c->status ); ?>
+							<?php if ( $c->status === 'scheduled' ) :
+								$next = wp_next_scheduled( 'ecwp_fire_campaign', [ (int) $c->id ] );
+								if ( $next ) :
+									echo '<br><small style="color:#6b7280;">' . esc_html( get_date_from_gmt( date( 'Y-m-d H:i:s', $next ), 'M j \a\t g:i a' ) ) . '</small>';
+								endif;
+							endif; ?>
+						</td>
 							<td class="ecwp-actions">
 								<a href="<?php echo admin_url( "admin.php?page=ecwp-campaigns&action=edit&campaign_id={$c->id}" ); ?>" class="ecwp-btn ecwp-btn-sm">Edit</a>
 

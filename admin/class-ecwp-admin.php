@@ -25,6 +25,8 @@ class ECWP_Admin {
 		add_action( 'admin_post_ecwp_delete_campaign',     [ $this, 'delete_campaign' ] );
 		add_action( 'admin_post_ecwp_trigger_campaign',    [ $this, 'trigger_campaign' ] );
 		add_action( 'admin_post_ecwp_pause_campaign',      [ $this, 'pause_campaign' ] );
+		add_action( 'admin_post_ecwp_schedule_campaign',   [ $this, 'schedule_campaign' ] );
+		add_action( 'admin_post_ecwp_unschedule_campaign', [ $this, 'unschedule_campaign' ] );
 		add_action( 'admin_post_ecwp_send_test',           [ $this, 'send_test_email' ] );
 		add_action( 'admin_post_ecwp_test_mailgun',        [ $this, 'test_mailgun_connection' ] );
 		add_action( 'admin_post_ecwp_create_tag',          [ $this, 'create_tag' ] );
@@ -643,6 +645,44 @@ class ECWP_Admin {
 		$id = intval( $_POST['campaign_id'] ?? 0 );
 		if ( $id ) { ( new ECWP_Campaigns() )->update( $id, [ 'status' => 'paused' ] ); }
 		wp_redirect( admin_url( 'admin.php?page=ecwp-campaigns&paused=1' ) );
+		exit;
+	}
+
+	public function schedule_campaign() {
+		if ( ! current_user_can( 'manage_options' ) || ! check_admin_referer( 'ecwp_schedule_campaign' ) ) {
+			wp_die( 'Unauthorized' );
+		}
+		$id = intval( $_POST['campaign_id'] ?? 0 );
+		if ( ! $id ) {
+			wp_redirect( admin_url( 'admin.php?page=ecwp-campaigns' ) );
+			exit;
+		}
+		$campaign  = ( new ECWP_Campaigns() )->get_by_id( $id );
+		$send_time = $campaign ? $campaign->send_time : '10:00';
+
+		// Set status to scheduled and enable schedule flag.
+		( new ECWP_Campaigns() )->update( $id, [
+			'status'           => 'scheduled',
+			'schedule_enabled' => 1,
+		] );
+
+		// Register the per-campaign cron event.
+		( new ECWP_Scheduler() )->schedule_campaign( $id, $send_time );
+
+		wp_redirect( admin_url( "admin.php?page=ecwp-campaigns&action=edit&campaign_id={$id}&scheduled=1" ) );
+		exit;
+	}
+
+	public function unschedule_campaign() {
+		if ( ! current_user_can( 'manage_options' ) || ! check_admin_referer( 'ecwp_unschedule_campaign' ) ) {
+			wp_die( 'Unauthorized' );
+		}
+		$id = intval( $_POST['campaign_id'] ?? 0 );
+		if ( $id ) {
+			( new ECWP_Campaigns() )->update( $id, [ 'status' => 'draft' ] );
+			( new ECWP_Scheduler() )->unschedule_campaign( $id );
+		}
+		wp_redirect( admin_url( "admin.php?page=ecwp-campaigns&action=edit&campaign_id={$id}&unscheduled=1" ) );
 		exit;
 	}
 

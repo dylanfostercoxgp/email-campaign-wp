@@ -25,10 +25,27 @@ $assigned_ids = array_column( (array) $campaign_subscribers, 'id' );
 	<?php if ( isset( $_GET['sent'] ) ) : ?>
 		<div class="ecwp-notice ecwp-notice-success">✅ Campaign saved and sending has started!</div>
 	<?php endif; ?>
+	<?php if ( isset( $_GET['scheduled'] ) ) : ?>
+		<div class="ecwp-notice ecwp-notice-success">🕐 Campaign scheduled! It will send automatically at the configured time.</div>
+	<?php endif; ?>
+	<?php if ( isset( $_GET['unscheduled'] ) ) : ?>
+		<div class="ecwp-notice ecwp-notice-info">Campaign unscheduled and set back to draft.</div>
+	<?php endif; ?>
 
-	<!-- Quick actions -->
-	<div class="ecwp-two-col" style="margin-bottom:0;">
-		<form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>">
+	<!-- Quick actions — buttons vary by campaign status -->
+	<?php
+		$s          = $campaign->status;
+		$scheduler  = new ECWP_Scheduler();
+		$next_run   = $scheduler->get_next_run( $campaign->id );
+		$is_draft   = in_array( $s, [ 'draft', 'paused' ], true );
+		$is_sched   = ( $s === 'scheduled' );
+		$is_sending = ( $s === 'sending' );
+	?>
+	<div style="display:flex;gap:10px;margin-bottom:0;flex-wrap:wrap;">
+
+		<!-- Send Now — always available for draft / scheduled / paused -->
+		<?php if ( $is_draft || $is_sched ) : ?>
+		<form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>" style="flex:1;min-width:160px;">
 			<input type="hidden" name="action"      value="ecwp_trigger_campaign">
 			<input type="hidden" name="campaign_id" value="<?php echo $campaign->id; ?>">
 			<?php wp_nonce_field( 'ecwp_trigger_campaign' ); ?>
@@ -36,7 +53,35 @@ $assigned_ids = array_column( (array) $campaign_subscribers, 'id' );
 				<span class="dashicons dashicons-controls-play"></span> Send Now
 			</button>
 		</form>
-		<form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>"
+		<?php endif; ?>
+
+		<!-- Schedule Send — shown for draft / paused -->
+		<?php if ( $is_draft ) : ?>
+		<form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>" style="flex:1;min-width:160px;">
+			<input type="hidden" name="action"      value="ecwp_schedule_campaign">
+			<input type="hidden" name="campaign_id" value="<?php echo $campaign->id; ?>">
+			<?php wp_nonce_field( 'ecwp_schedule_campaign' ); ?>
+			<button type="submit" class="ecwp-btn ecwp-btn-success ecwp-btn-lg" style="width:100%;">
+				<span class="dashicons dashicons-calendar-alt"></span> Schedule Send
+			</button>
+		</form>
+		<?php endif; ?>
+
+		<!-- Unschedule — shown when scheduled -->
+		<?php if ( $is_sched ) : ?>
+		<form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>" style="flex:1;min-width:160px;">
+			<input type="hidden" name="action"      value="ecwp_unschedule_campaign">
+			<input type="hidden" name="campaign_id" value="<?php echo $campaign->id; ?>">
+			<?php wp_nonce_field( 'ecwp_unschedule_campaign' ); ?>
+			<button type="submit" class="ecwp-btn ecwp-btn-warning ecwp-btn-lg" style="width:100%;">
+				<span class="dashicons dashicons-no-alt"></span> Unschedule
+			</button>
+		</form>
+		<?php endif; ?>
+
+		<!-- Pause — shown while sending -->
+		<?php if ( $is_sending ) : ?>
+		<form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>" style="flex:1;min-width:160px;"
 		      class="ecwp-confirm-form" data-confirm="Pause this campaign?">
 			<input type="hidden" name="action"      value="ecwp_pause_campaign">
 			<input type="hidden" name="campaign_id" value="<?php echo $campaign->id; ?>">
@@ -45,7 +90,14 @@ $assigned_ids = array_column( (array) $campaign_subscribers, 'id' );
 				<span class="dashicons dashicons-controls-pause"></span> Pause
 			</button>
 		</form>
+		<?php endif; ?>
+
 	</div>
+	<?php if ( $is_sched && $next_run ) : ?>
+		<div class="ecwp-notice ecwp-notice-info" style="margin-top:10px;">
+			🕐 <strong>Scheduled:</strong> will send on <?php echo esc_html( get_date_from_gmt( date( 'Y-m-d H:i:s', $next_run ), 'M j, Y \a\t g:i a' ) ); ?>
+		</div>
+	<?php endif; ?>
 
 	<form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>" enctype="multipart/form-data" style="margin-top:20px;" id="ecwp-edit-form">
 		<input type="hidden" name="action"           value="ecwp_update_campaign">
