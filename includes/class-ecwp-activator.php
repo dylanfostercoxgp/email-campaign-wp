@@ -40,6 +40,9 @@ class ECWP_Activator {
 			if ( ! in_array( 'target_tags', $existing, true ) ) {
 				$wpdb->query( "ALTER TABLE {$campaigns} ADD COLUMN target_tags TEXT AFTER target_type" );
 			}
+			if ( ! in_array( 'preview_text', $existing, true ) ) {
+				$wpdb->query( "ALTER TABLE {$campaigns} ADD COLUMN preview_text VARCHAR(255) NOT NULL DEFAULT '' AFTER subject" );
+			}
 		}
 
 		/* ── Subscribers table — optional contact fields ──────────────── */
@@ -121,6 +124,7 @@ class ECWP_Activator {
 			id               BIGINT(20)   NOT NULL AUTO_INCREMENT,
 			name             VARCHAR(255) NOT NULL,
 			subject          VARCHAR(255) NOT NULL DEFAULT '',
+			preview_text     VARCHAR(255) NOT NULL DEFAULT '',
 			html_content     LONGTEXT     NOT NULL DEFAULT '',
 			status           VARCHAR(20)  NOT NULL DEFAULT 'draft',
 			target_type      VARCHAR(20)  NOT NULL DEFAULT 'all',

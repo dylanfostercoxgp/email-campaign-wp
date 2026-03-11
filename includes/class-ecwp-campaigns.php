@@ -43,6 +43,7 @@ class ECWP_Campaigns {
 		$result = $wpdb->insert( $this->table, [
 			'name'             => sanitize_text_field( $data['name'] ?? '' ),
 			'subject'          => sanitize_text_field( $data['subject'] ?? '' ),
+			'preview_text'     => sanitize_text_field( $data['preview_text'] ?? '' ),
 			'html_content'     => $data['html_content'] ?? '',
 			'status'           => 'draft',
 			'target_type'      => in_array( $data['target_type'] ?? 'all', [ 'all', 'tags', 'selected' ], true ) ? $data['target_type'] : 'all',
@@ -64,7 +65,7 @@ class ECWP_Campaigns {
 		global $wpdb;
 		$set = [];
 
-		$string_fields = [ 'name', 'subject', 'status', 'send_time', 'target_type', 'target_tags' ];
+		$string_fields = [ 'name', 'subject', 'preview_text', 'status', 'send_time', 'target_type', 'target_tags' ];
 		$int_fields    = [ 'schedule_enabled', 'batch_size', 'batch_interval' ];
 
 		foreach ( $string_fields as $key ) {

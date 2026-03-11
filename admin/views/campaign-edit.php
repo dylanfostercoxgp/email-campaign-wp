@@ -69,6 +69,11 @@ $assigned_ids = array_column( (array) $campaign_subscribers, 'id' );
 							<label>Subject Line <span class="required">*</span></label>
 							<input type="text" name="subject" value="<?php echo esc_attr( $campaign->subject ); ?>" class="ecwp-input" required>
 						</div>
+						<div class="ecwp-field">
+							<label>Preview Text</label>
+							<input type="text" name="preview_text" value="<?php echo esc_attr( $campaign->preview_text ?? '' ); ?>" class="ecwp-input" placeholder="The one-line teaser shown in the inbox beneath your subject line…" maxlength="150">
+							<span class="ecwp-hint">Shown in the inbox below the subject line. Keep it under 90 characters. Leave blank to let the email client use the first visible text in the email.</span>
+						</div>
 					</div>
 				</div>
 

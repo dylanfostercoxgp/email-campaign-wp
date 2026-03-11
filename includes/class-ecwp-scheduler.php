@@ -166,7 +166,8 @@ class ECWP_Scheduler {
 				continue;
 			}
 
-			$html = $this->personalize( $campaign->html_content, $subscriber, $campaign_id );
+			$html = $this->inject_preview_text( $campaign->html_content, $campaign->preview_text ?? '' );
+			$html = $this->personalize( $html, $subscriber, $campaign_id );
 
 			// Insert a pending log row first (so unsent check excludes this sub).
 			$wpdb->insert( $log_table, [
@@ -218,6 +219,34 @@ class ECWP_Scheduler {
 	/* ------------------------------------------------------------------ */
 	/*  Personalization                                                     */
 	/* ------------------------------------------------------------------ */
+
+	/**
+	 * Inject a hidden preheader/preview-text span at the top of the <body>.
+	 * Email clients show this text as the inbox snippet beneath the subject line.
+	 * Zero-width non-joiners pad the text so clients don't bleed email body copy
+	 * into the preview when the preview text is short.
+	 */
+	private function inject_preview_text( $html, $preview_text ) {
+		$preview_text = trim( $preview_text );
+		if ( empty( $preview_text ) ) {
+			return $html;
+		}
+		// Build padding: repeat &zwnj;&nbsp; enough times to fill 150 chars of preview space.
+		$padding_char  = '&zwnj;&nbsp;';
+		$padding_count = max( 0, (int) ceil( ( 150 - mb_strlen( $preview_text ) ) / 2 ) );
+		$padding       = str_repeat( $padding_char, $padding_count );
+
+		$span = '<span style="display:none;font-size:1px;color:#ffffff;max-height:0;max-width:0;opacity:0;overflow:hidden;">'
+		      . esc_html( $preview_text )
+		      . $padding
+		      . '</span>';
+
+		// Inject right after <body ...> if it exists, otherwise prepend.
+		if ( preg_match( '/<body[^>]*>/i', $html ) ) {
+			return preg_replace( '/(<body[^>]*>)/i', '$1' . $span, $html, 1 );
+		}
+		return $span . $html;
+	}
 
 	private function personalize( $html, $subscriber, $campaign_id ) {
 		$unsubscribe_url  = $this->build_unsubscribe_url( $subscriber->email );

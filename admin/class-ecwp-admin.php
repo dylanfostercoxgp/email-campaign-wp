@@ -514,8 +514,9 @@ class ECWP_Admin {
 
 		$campaigns   = new ECWP_Campaigns();
 		$campaign_id = $campaigns->create( [
-			'name'             => $_POST['name']      ?? '',
-			'subject'          => $_POST['subject']   ?? '',
+			'name'             => $_POST['name']         ?? '',
+			'subject'          => $_POST['subject']      ?? '',
+			'preview_text'     => $_POST['preview_text'] ?? '',
 			'html_content'     => $html,
 			'target_type'      => $target_type,
 			'target_tags'      => $target_tags,
@@ -560,8 +561,9 @@ class ECWP_Admin {
 		}
 
 		$data = [
-			'name'             => $_POST['name']      ?? '',
-			'subject'          => $_POST['subject']   ?? '',
+			'name'             => $_POST['name']         ?? '',
+			'subject'          => $_POST['subject']      ?? '',
+			'preview_text'     => $_POST['preview_text'] ?? '',
 			'target_type'      => $target_type,
 			'target_tags'      => $target_tags,
 			'send_time'        => $_POST['send_time'] ?? '10:00',

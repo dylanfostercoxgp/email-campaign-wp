@@ -35,6 +35,11 @@
 							<label for="camp_subject">Email Subject Line <span class="required">*</span></label>
 							<input type="text" id="camp_subject" name="subject" class="ecwp-input" placeholder="Hey {{first_name}}, here's what's new…" required>
 						</div>
+						<div class="ecwp-field">
+							<label for="camp_preview">Preview Text</label>
+							<input type="text" id="camp_preview" name="preview_text" class="ecwp-input" placeholder="The one-line teaser shown in the inbox beneath your subject line…" maxlength="150">
+							<span class="ecwp-hint">Shown in the inbox below the subject line. Keep it under 90 characters. Leave blank to let the email client use the first visible text in the email.</span>
+						</div>
 					</div>
 				</div>
 
