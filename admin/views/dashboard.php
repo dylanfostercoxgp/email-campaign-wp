@@ -14,9 +14,15 @@
 
 	<h1 class="ecwp-page-title">Dashboard</h1>
 
-	<!-- Stats Grid -->
+	<!-- Stats Grid — each card is a link to the relevant page / filtered view -->
+	<style>
+	a.ecwp-stat-card { text-decoration:none; color:inherit; transition:box-shadow .15s,transform .15s; }
+	a.ecwp-stat-card:hover { box-shadow:0 4px 16px rgba(0,0,0,.12); transform:translateY(-2px); }
+	</style>
 	<div class="ecwp-stats-grid">
-		<div class="ecwp-stat-card">
+
+		<a href="<?php echo esc_url( admin_url( 'admin.php?page=ecwp-subscribers&filter_status=active' ) ); ?>"
+		   class="ecwp-stat-card" title="View active subscribers">
 			<div class="ecwp-stat-icon" style="background:#e0f2fe;color:#0284c7;">
 				<span class="dashicons dashicons-groups"></span>
 			</div>
@@ -24,8 +30,10 @@
 				<div class="ecwp-stat-value"><?php echo number_format( $stats['active_subs'] ); ?></div>
 				<div class="ecwp-stat-label">Active Subscribers</div>
 			</div>
-		</div>
-		<div class="ecwp-stat-card">
+		</a>
+
+		<a href="<?php echo esc_url( admin_url( 'admin.php?page=ecwp-analytics' ) ); ?>"
+		   class="ecwp-stat-card" title="View analytics">
 			<div class="ecwp-stat-icon" style="background:#dcfce7;color:#16a34a;">
 				<span class="dashicons dashicons-email-alt"></span>
 			</div>
@@ -33,35 +41,43 @@
 				<div class="ecwp-stat-value"><?php echo number_format( $stats['total_sent'] ); ?></div>
 				<div class="ecwp-stat-label">Total Emails Sent</div>
 			</div>
-		</div>
-		<div class="ecwp-stat-card">
+		</a>
+
+		<a href="<?php echo esc_url( admin_url( 'admin.php?page=ecwp-analytics&event_filter=opened' ) ); ?>"
+		   class="ecwp-stat-card" title="See who opened emails">
 			<div class="ecwp-stat-icon" style="background:#fef9c3;color:#ca8a04;">
 				<span class="dashicons dashicons-visibility"></span>
 			</div>
 			<div class="ecwp-stat-body">
 				<div class="ecwp-stat-value"><?php echo number_format( $stats['total_opens'] ); ?></div>
-				<div class="ecwp-stat-label">Unique Opens</div>
+				<div class="ecwp-stat-label">Unique Opens ↗</div>
 			</div>
-		</div>
-		<div class="ecwp-stat-card">
+		</a>
+
+		<a href="<?php echo esc_url( admin_url( 'admin.php?page=ecwp-analytics&event_filter=clicked' ) ); ?>"
+		   class="ecwp-stat-card" title="See who clicked links">
 			<div class="ecwp-stat-icon" style="background:#fce7f3;color:#db2777;">
 				<span class="dashicons dashicons-admin-links"></span>
 			</div>
 			<div class="ecwp-stat-body">
 				<div class="ecwp-stat-value"><?php echo number_format( $stats['total_clicks'] ); ?></div>
-				<div class="ecwp-stat-label">Unique Clicks</div>
+				<div class="ecwp-stat-label">Unique Clicks ↗</div>
 			</div>
-		</div>
-		<div class="ecwp-stat-card">
+		</a>
+
+		<a href="<?php echo esc_url( admin_url( 'admin.php?page=ecwp-analytics&event_filter=bounced' ) ); ?>"
+		   class="ecwp-stat-card" title="See bounced emails">
 			<div class="ecwp-stat-icon" style="background:#fee2e2;color:#dc2626;">
 				<span class="dashicons dashicons-warning"></span>
 			</div>
 			<div class="ecwp-stat-body">
 				<div class="ecwp-stat-value"><?php echo number_format( $stats['total_bounces'] ); ?></div>
-				<div class="ecwp-stat-label">Bounces</div>
+				<div class="ecwp-stat-label">Bounces ↗</div>
 			</div>
-		</div>
-		<div class="ecwp-stat-card">
+		</a>
+
+		<a href="<?php echo esc_url( admin_url( 'admin.php?page=ecwp-campaigns' ) ); ?>"
+		   class="ecwp-stat-card" title="View all campaigns">
 			<div class="ecwp-stat-icon" style="background:#f3e8ff;color:#9333ea;">
 				<span class="dashicons dashicons-megaphone"></span>
 			</div>
@@ -69,7 +85,8 @@
 				<div class="ecwp-stat-value"><?php echo number_format( $stats['total_campaigns'] ); ?></div>
 				<div class="ecwp-stat-label">Campaigns</div>
 			</div>
-		</div>
+		</a>
+
 	</div>
 
 	<!-- Quick Actions + Recent Campaigns -->
@@ -115,30 +132,6 @@
 		</div>
 	</div>
 
-	<?php
-	$schedule_enabled = get_option( 'ecwp_schedule_enabled', '0' );
-	$send_time        = get_option( 'ecwp_send_time', '10:00' );
-	$next_cron        = wp_next_scheduled( 'ecwp_daily_trigger' );
-	?>
-
-	<div class="ecwp-card ecwp-info-bar">
-		<div class="ecwp-card-body" style="display:flex;gap:32px;flex-wrap:wrap;align-items:center;">
-			<div>
-				<strong>Schedule Status:</strong>
-				<?php echo $schedule_enabled === '1'
-					? '<span class="ecwp-badge ecwp-badge-green">Active</span>'
-					: '<span class="ecwp-badge ecwp-badge-grey">Inactive</span>'; ?>
-			</div>
-			<div><strong>Daily Send Time:</strong> <?php echo esc_html( $send_time ); ?></div>
-			<?php if ( $next_cron ) : ?>
-				<div><strong>Next Trigger:</strong> <?php echo esc_html( get_date_from_gmt( date( 'Y-m-d H:i:s', $next_cron ), 'M j, Y g:i a' ) ); ?></div>
-			<?php endif; ?>
-			<div>
-				<a href="<?php echo admin_url( 'admin.php?page=ecwp-settings' ); ?>" class="ecwp-btn ecwp-btn-sm">Edit Settings</a>
-			</div>
-		</div>
-	</div>
-
 	<div class="ecwp-footer">
 		Email Campaign WP <?php echo ECWP_VERSION; ?> &mdash;
 		by <a href="https://ideaboss.io" target="_blank">ideaBoss</a>
@@ -147,14 +140,16 @@
 	</div>
 </div>
 <?php
-function ecwp_status_badge( $status ) {
-	$map = [
-		'draft'     => [ 'grey',   'Draft' ],
-		'scheduled' => [ 'blue',   'Scheduled' ],
-		'sending'   => [ 'yellow', 'Sending' ],
-		'sent'      => [ 'green',  'Sent' ],
-		'paused'    => [ 'orange', 'Paused' ],
-	];
-	[$colour, $label] = $map[ $status ] ?? [ 'grey', ucfirst( $status ) ];
-	return "<span class='ecwp-badge ecwp-badge-{$colour}'>{$label}</span>";
+if ( ! function_exists( 'ecwp_status_badge' ) ) {
+	function ecwp_status_badge( $status ) {
+		$map = [
+			'draft'     => [ 'grey',   'Draft' ],
+			'scheduled' => [ 'blue',   'Scheduled' ],
+			'sending'   => [ 'yellow', 'Sending' ],
+			'sent'      => [ 'green',  'Sent' ],
+			'paused'    => [ 'orange', 'Paused' ],
+		];
+		[$colour, $label] = $map[ $status ] ?? [ 'grey', ucfirst( $status ) ];
+		return "<span class='ecwp-badge ecwp-badge-{$colour}'>{$label}</span>";
+	}
 }

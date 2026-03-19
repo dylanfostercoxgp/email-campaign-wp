@@ -33,8 +33,13 @@ class ECWP_Admin {
 		add_action( 'admin_post_ecwp_edit_tag',                      [ $this, 'edit_tag' ] );
 		add_action( 'admin_post_ecwp_delete_tag',                    [ $this, 'delete_tag' ] );
 		add_action( 'admin_post_ecwp_remove_subscriber_from_tag',    [ $this, 'remove_subscriber_from_tag' ] );
+		add_action( 'admin_post_ecwp_quick_unsubscribe',             [ $this, 'quick_unsubscribe' ] );
 		add_action( 'admin_post_ecwp_save_template',       [ $this, 'save_template' ] );
 		add_action( 'admin_post_ecwp_delete_template',     [ $this, 'delete_template' ] );
+		add_action( 'admin_post_ecwp_create_automation',   [ $this, 'create_automation' ] );
+		add_action( 'admin_post_ecwp_toggle_automation',   [ $this, 'toggle_automation' ] );
+		add_action( 'admin_post_ecwp_delete_automation',   [ $this, 'delete_automation' ] );
+		add_action( 'admin_post_ecwp_run_automation',      [ $this, 'run_automation' ] );
 
 		// ── AJAX handlers ─────────────────────────────────────────────
 		add_action( 'wp_ajax_ecwp_autosave_html',          [ $this, 'ajax_autosave_html' ] );
@@ -60,6 +65,7 @@ class ECWP_Admin {
 		add_submenu_page( 'ecwp-dashboard', 'Tags',         'Tags',         'manage_options', 'ecwp-tags',        [ $this, 'page_tags' ] );
 		add_submenu_page( 'ecwp-dashboard', 'Templates',    'Templates',    'manage_options', 'ecwp-templates',   [ $this, 'page_templates' ] );
 		add_submenu_page( 'ecwp-dashboard', 'Analytics',    'Analytics',    'manage_options', 'ecwp-analytics',   [ $this, 'page_analytics' ] );
+		add_submenu_page( 'ecwp-dashboard', 'Automations',  'Automations',  'manage_options', 'ecwp-automations', [ $this, 'page_automations' ] );
 		add_submenu_page( 'ecwp-dashboard', 'Settings',     'Settings',     'manage_options', 'ecwp-settings',    [ $this, 'page_settings' ] );
 		// Hidden page for HTML editor (linked from campaign edit)
 		add_submenu_page( null, 'HTML Editor', 'HTML Editor', 'manage_options', 'ecwp-html-editor', [ $this, 'page_html_editor' ] );
@@ -168,15 +174,23 @@ class ECWP_Admin {
 			$subscriber_tag_ids = array_column( $subscriber_tags, 'id' );
 			include ECWP_PLUGIN_DIR . 'admin/views/subscriber-edit.php';
 		} else {
-			$per_page        = 100;
-			$paged           = max( 1, intval( $_GET['paged'] ?? 1 ) );
-			$total_count     = $subscribers->count();
-			$total_pages     = (int) ceil( $total_count / $per_page );
-			$offset          = ( $paged - 1 ) * $per_page;
-			$all_subscribers = $subscribers->get_all( 'all', $per_page, $offset );
-			$active_count    = $subscribers->count( 'active' );
-			$unsub_count     = $subscribers->count( 'unsubscribed' );
-			$all_tags        = $tags->get_all();
+			$orderby       = sanitize_text_field( $_GET['orderby']       ?? 'subscribed_at' );
+			$order         = strtoupper( sanitize_text_field( $_GET['order'] ?? 'DESC' ) );
+			$filter_status = sanitize_text_field( $_GET['filter_status'] ?? '' );
+			if ( ! in_array( $filter_status, [ 'active', 'unsubscribed' ], true ) ) {
+				$filter_status = 'all';
+			}
+			$filter_tag    = intval( $_GET['filter_tag'] ?? 0 );
+
+			$per_page      = 100;
+			$paged         = max( 1, intval( $_GET['paged'] ?? 1 ) );
+			$total_count   = $subscribers->count( $filter_status, $filter_tag );
+			$total_pages   = (int) ceil( $total_count / $per_page );
+			$offset        = ( $paged - 1 ) * $per_page;
+			$all_subscribers = $subscribers->get_all( $filter_status, $per_page, $offset, $orderby, $order, $filter_tag );
+			$active_count  = $subscribers->count( 'active' );
+			$unsub_count   = $subscribers->count( 'unsubscribed' );
+			$all_tags      = $tags->get_all();
 			include ECWP_PLUGIN_DIR . 'admin/views/subscribers.php';
 		}
 	}
@@ -254,8 +268,29 @@ class ECWP_Admin {
 			$stats['clicked'] = (int) $wpdb->get_var( "SELECT COUNT(DISTINCT message_id) FROM {$anal} WHERE event_type='clicked'" );
 		}
 
+		// ── Event-type drill-down ──────────────────────────────────────────
+		$event_filter      = sanitize_text_field( $_GET['event_filter'] ?? '' );
+		$event_subscribers = [];
+		$valid_filters     = [ 'opened', 'clicked', 'bounced', 'failed', 'complained', 'unsubscribed' ];
+		if ( $event_filter && in_array( $event_filter, $valid_filters, true ) ) {
+			$ef_where = $selected_id
+				? $wpdb->prepare( 'WHERE a.event_type = %s AND a.campaign_id = %d', $event_filter, $selected_id )
+				: $wpdb->prepare( 'WHERE a.event_type = %s', $event_filter );
+			$event_subscribers = $wpdb->get_results(
+				"SELECT a.recipient, MAX(a.created_at) AS last_event, COUNT(*) AS event_count,
+				        s.id AS subscriber_id, s.first_name, s.last_name, s.status
+				 FROM {$anal} a
+				 LEFT JOIN {$wpdb->prefix}ecwp_subscribers s ON s.email = a.recipient
+				 {$ef_where}
+				 GROUP BY a.recipient
+				 ORDER BY last_event DESC"
+			);
+		}
+
 		$recent_events  = $wpdb->get_results(
-			"SELECT a.* FROM {$anal} a ORDER BY a.created_at DESC LIMIT 100"
+			$event_filter
+				? $wpdb->prepare( "SELECT a.* FROM {$anal} a WHERE a.event_type = %s ORDER BY a.created_at DESC LIMIT 100", $event_filter )
+				: "SELECT a.* FROM {$anal} a ORDER BY a.created_at DESC LIMIT 100"
 		);
 		$campaign_stats = $wpdb->get_results(
 			"SELECT c.id, c.name, c.status,
@@ -270,6 +305,13 @@ class ECWP_Admin {
 			 GROUP BY c.id
 			 ORDER BY c.created_at DESC"
 		);
+
+		// ── Custom link tracking stats ────────────────────────────────────
+		$custom_tracking_on = get_option( 'ecwp_custom_link_tracking', '0' ) === '1';
+		$link_tracker       = new ECWP_Link_Tracker();
+		$link_stats         = $custom_tracking_on ? $link_tracker->get_link_stats( $selected_id )       : [];
+		$link_clickers      = $custom_tracking_on ? $link_tracker->get_clicker_detail( $selected_id )   : [];
+		$link_click_totals  = $custom_tracking_on ? $link_tracker->get_summary_stats( $selected_id )    : [ 'total_clicks' => 0, 'unique_clickers' => 0 ];
 
 		include ECWP_PLUGIN_DIR . 'admin/views/analytics.php';
 	}
@@ -295,8 +337,9 @@ class ECWP_Admin {
 				update_option( $field, sanitize_text_field( $_POST[ $field ] ) );
 			}
 		}
-		update_option( 'ecwp_schedule_enabled', isset( $_POST['ecwp_schedule_enabled'] ) ? '1' : '0' );
-		update_option( 'ecwp_click_tracking',   isset( $_POST['ecwp_click_tracking'] )   ? '1' : '0' );
+		update_option( 'ecwp_schedule_enabled',       isset( $_POST['ecwp_schedule_enabled'] )       ? '1' : '0' );
+		update_option( 'ecwp_click_tracking',         isset( $_POST['ecwp_click_tracking'] )         ? '1' : '0' );
+		update_option( 'ecwp_custom_link_tracking',   isset( $_POST['ecwp_custom_link_tracking'] )   ? '1' : '0' );
 		( new ECWP_Scheduler() )->reschedule_daily_trigger();
 		wp_redirect( admin_url( 'admin.php?page=ecwp-settings&saved=1' ) );
 		exit;
@@ -408,6 +451,26 @@ class ECWP_Admin {
 			wp_redirect( $redirect );
 		} else {
 			wp_redirect( admin_url( 'admin.php?page=ecwp-subscribers&deleted=1' ) );
+		}
+		exit;
+	}
+
+	public function quick_unsubscribe() {
+		if ( ! current_user_can( 'manage_options' ) || ! check_admin_referer( 'ecwp_quick_unsubscribe' ) ) {
+			wp_die( 'Unauthorized' );
+		}
+		$id = intval( $_POST['subscriber_id'] ?? 0 );
+		if ( $id ) {
+			$sub = ( new ECWP_Subscribers() )->get_by_id( $id );
+			if ( $sub && $sub->status === 'active' ) {
+				( new ECWP_Subscribers() )->unsubscribe( $sub->email );
+			}
+		}
+		$redirect = isset( $_POST['ecwp_redirect_to'] ) ? esc_url_raw( wp_unslash( $_POST['ecwp_redirect_to'] ) ) : '';
+		if ( $redirect && strpos( $redirect, admin_url() ) === 0 ) {
+			wp_redirect( $redirect );
+		} else {
+			wp_redirect( admin_url( 'admin.php?page=ecwp-subscribers&unsubscribed=1' ) );
 		}
 		exit;
 	}
@@ -795,6 +858,146 @@ class ECWP_Admin {
 		} else {
 			wp_redirect( admin_url( 'admin.php?page=ecwp-settings&conn_ok=1' ) );
 		}
+		exit;
+	}
+
+	/* ------------------------------------------------------------------ */
+	/*  Automations page + handlers                                        */
+	/* ------------------------------------------------------------------ */
+
+	public function page_automations() {
+		$automations_obj = new ECWP_Automations();
+		$action          = sanitize_text_field( $_GET['action'] ?? 'list' );
+		$automation_id   = intval( $_GET['automation_id'] ?? 0 );
+
+		if ( $action === 'view' && $automation_id ) {
+			$automation = $automations_obj->get_by_id( $automation_id );
+			if ( ! $automation ) {
+				wp_die( 'Automation not found.' );
+			}
+			$auto_log  = $automations_obj->get_log( $automation_id );
+			$log_count = $automations_obj->get_log_count( $automation_id );
+			include ECWP_PLUGIN_DIR . 'admin/views/automations.php';
+
+		} elseif ( $action === 'create' ) {
+			global $wpdb;
+			// Only 'sent' campaigns as trigger options; all campaigns as follow-up options.
+			$sent_campaigns = $wpdb->get_results(
+				"SELECT id, subject FROM {$wpdb->prefix}ecwp_campaigns
+				 WHERE status = 'sent' ORDER BY id DESC"
+			);
+			$all_campaigns = $wpdb->get_results(
+				"SELECT id, subject, status FROM {$wpdb->prefix}ecwp_campaigns ORDER BY id DESC"
+			);
+			$automation = null;
+			$auto_log   = [];
+			$log_count  = 0;
+			include ECWP_PLUGIN_DIR . 'admin/views/automations.php';
+
+		} else {
+			$automations     = $automations_obj->get_all();
+			$active_count    = count( array_filter( $automations, fn( $a ) => $a->status === 'active' ) );
+			$paused_count    = count( $automations ) - $active_count;
+			$total_sent_all  = array_sum( array_column( $automations, 'total_sent' ) );
+			$automation      = null;
+			$auto_log        = [];
+			$log_count       = 0;
+			$sent_campaigns  = [];
+			$all_campaigns   = [];
+			include ECWP_PLUGIN_DIR . 'admin/views/automations.php';
+		}
+	}
+
+	public function create_automation() {
+		if ( ! current_user_can( 'manage_options' ) || ! check_admin_referer( 'ecwp_create_automation' ) ) {
+			wp_die( 'Unauthorized' );
+		}
+		$name                 = sanitize_text_field( $_POST['name'] ?? '' );
+		$trigger_campaign_id  = intval( $_POST['trigger_campaign_id'] ?? 0 );
+		$followup_campaign_id = intval( $_POST['followup_campaign_id'] ?? 0 );
+		$condition            = sanitize_key( $_POST['condition'] ?? 'not_clicked' );
+		$delay_days           = max( 1, intval( $_POST['delay_days'] ?? 5 ) );
+
+		if ( ! $name || ! $trigger_campaign_id || ! $followup_campaign_id ) {
+			wp_redirect( admin_url( 'admin.php?page=ecwp-automations&action=create&create_error=' . rawurlencode( 'Please fill in all required fields.' ) ) );
+			exit;
+		}
+
+		$valid_conditions = [ 'not_clicked', 'not_opened', 'opened_not_clicked' ];
+		if ( ! in_array( $condition, $valid_conditions, true ) ) {
+			$condition = 'not_clicked';
+		}
+
+		$id = ( new ECWP_Automations() )->create( compact( 'name', 'trigger_campaign_id', 'followup_campaign_id', 'condition', 'delay_days' ) );
+
+		if ( $id ) {
+			wp_redirect( admin_url( "admin.php?page=ecwp-automations&action=view&automation_id={$id}&created=1" ) );
+		} else {
+			wp_redirect( admin_url( 'admin.php?page=ecwp-automations&action=create&create_error=' . rawurlencode( 'Could not create automation. Please try again.' ) ) );
+		}
+		exit;
+	}
+
+	public function toggle_automation() {
+		if ( ! current_user_can( 'manage_options' ) || ! check_admin_referer( 'ecwp_toggle_automation' ) ) {
+			wp_die( 'Unauthorized' );
+		}
+		$id  = intval( $_POST['automation_id'] ?? 0 );
+		$obj = new ECWP_Automations();
+		$auto = $obj->get_by_id( $id );
+		if ( $auto ) {
+			$new_status = $auto->status === 'active' ? 'paused' : 'active';
+			$obj->update( $id, [ 'status' => $new_status ] );
+		}
+		$redirect = isset( $_POST['ecwp_redirect_to'] ) ? esc_url_raw( wp_unslash( $_POST['ecwp_redirect_to'] ) ) : '';
+		if ( $redirect && strpos( $redirect, admin_url() ) === 0 ) {
+			wp_redirect( add_query_arg( 'toggled', '1', $redirect ) );
+		} else {
+			wp_redirect( admin_url( "admin.php?page=ecwp-automations&action=view&automation_id={$id}&toggled=1" ) );
+		}
+		exit;
+	}
+
+	public function delete_automation() {
+		if ( ! current_user_can( 'manage_options' ) || ! check_admin_referer( 'ecwp_delete_automation' ) ) {
+			wp_die( 'Unauthorized' );
+		}
+		$id = intval( $_POST['automation_id'] ?? 0 );
+		if ( $id ) {
+			( new ECWP_Automations() )->delete( $id );
+		}
+		wp_redirect( admin_url( 'admin.php?page=ecwp-automations&deleted=1' ) );
+		exit;
+	}
+
+	public function run_automation() {
+		if ( ! current_user_can( 'manage_options' ) || ! check_admin_referer( 'ecwp_run_automation' ) ) {
+			wp_die( 'Unauthorized' );
+		}
+		$id   = intval( $_POST['automation_id'] ?? 0 );
+		$obj  = new ECWP_Automations();
+		$auto = $obj->get_by_id( $id );
+
+		if ( ! $auto ) {
+			wp_redirect( admin_url( 'admin.php?page=ecwp-automations&run_error=' . rawurlencode( 'Automation not found.' ) ) );
+			exit;
+		}
+
+		// Temporarily override the status check so a paused automation can be manually run.
+		$original_status = $auto->status;
+		if ( $original_status === 'paused' ) {
+			$obj->update( $id, [ 'status' => 'active' ] );
+			$auto->status = 'active';
+		}
+
+		$sent = $obj->evaluate( $auto );
+
+		// Restore paused status.
+		if ( $original_status === 'paused' ) {
+			$obj->update( $id, [ 'status' => 'paused' ] );
+		}
+
+		wp_redirect( admin_url( "admin.php?page=ecwp-automations&action=view&automation_id={$id}&ran={$sent}" ) );
 		exit;
 	}
 

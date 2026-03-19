@@ -1,9 +1,21 @@
 <?php if ( ! defined( 'ABSPATH' ) ) { exit; } ?>
 <div class="wrap ecwp-wrap">
 	<div class="ecwp-page-header">
-		<h1 class="ecwp-page-title">Analytics</h1>
+		<h1 class="ecwp-page-title">
+			Analytics
+			<?php if ( $event_filter ) : ?>
+				&mdash; <span style="font-size:16px;font-weight:500;color:#6b7280;">
+					<?php echo esc_html( ucfirst( $event_filter ) ); ?> events
+				</span>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=ecwp-analytics' . ( $selected_id ? '&campaign_id=' . $selected_id : '' ) ) ); ?>"
+				   class="ecwp-btn ecwp-btn-sm ecwp-btn-secondary" style="font-size:12px;margin-left:8px;">&times; Clear filter</a>
+			<?php endif; ?>
+		</h1>
 		<form method="get" style="display:flex;gap:8px;align-items:center;">
 			<input type="hidden" name="page" value="ecwp-analytics">
+			<?php if ( $event_filter ) : ?>
+				<input type="hidden" name="event_filter" value="<?php echo esc_attr( $event_filter ); ?>">
+			<?php endif; ?>
 			<select name="campaign_id" class="ecwp-input ecwp-input-sm" onchange="this.form.submit()">
 				<option value="0">All Campaigns</option>
 				<?php foreach ( $all_campaigns as $c ) : ?>
@@ -99,6 +111,184 @@
 			</div>
 		</div>
 	</div>
+
+	<!-- ── Event drill-down: who performed this event? ──────────── -->
+	<?php if ( $event_filter && ! empty( $event_subscribers ) ) : ?>
+	<div class="ecwp-card">
+		<div class="ecwp-card-header">
+			<?php
+			$ev_icons = ['opened'=>'dashicons-visibility','clicked'=>'dashicons-admin-links','bounced'=>'dashicons-warning','complained'=>'dashicons-flag','failed'=>'dashicons-dismiss','unsubscribed'=>'dashicons-no-alt'];
+			$ev_icon  = $ev_icons[$event_filter] ?? 'dashicons-list-view';
+			?>
+			<span class="dashicons <?php echo $ev_icon; ?>"></span>
+			Subscribers who <strong><?php echo esc_html( $event_filter ); ?></strong>
+			<span class="ecwp-hint" style="font-weight:normal;">(<?php echo count( $event_subscribers ); ?> unique)</span>
+			<div style="margin-left:auto;">
+				<input type="text" class="ecwp-input ecwp-input-sm" placeholder="Search&hellip;"
+				       oninput="filterTable(this,'ecwp-event-sub-table')" style="width:180px;">
+			</div>
+		</div>
+		<div class="ecwp-card-body ecwp-no-pad">
+			<table class="ecwp-table ecwp-table-hover" id="ecwp-event-sub-table">
+				<thead>
+					<tr>
+						<th>Email</th>
+						<th>Name</th>
+						<th>Subscriber Status</th>
+						<th>Times</th>
+						<th>Last Event</th>
+						<th></th>
+					</tr>
+				</thead>
+				<tbody>
+				<?php foreach ( $event_subscribers as $es ) : ?>
+					<tr>
+						<td><?php echo esc_html( $es->recipient ); ?></td>
+						<td><?php echo esc_html( trim( ( $es->first_name ?? '' ) . ' ' . ( $es->last_name ?? '' ) ) ?: '—' ); ?></td>
+						<td>
+							<?php if ( $es->subscriber_id ) : ?>
+								<?php $s_status = $es->status ?? 'active'; ?>
+								<span class="ecwp-badge ecwp-badge-<?php echo $s_status === 'active' ? 'green' : 'grey'; ?>">
+									<?php echo $s_status === 'active' ? 'Active' : 'Unsubscribed'; ?>
+								</span>
+							<?php else : ?>
+								<span class="ecwp-hint">&mdash;</span>
+							<?php endif; ?>
+						</td>
+						<td><?php echo (int) $es->event_count; ?></td>
+						<td style="white-space:nowrap;"><?php echo esc_html( date( 'M j, Y g:i a', strtotime( $es->last_event ) ) ); ?></td>
+						<td>
+							<?php if ( $es->subscriber_id ) : ?>
+								<a href="<?php echo esc_url( admin_url( 'admin.php?page=ecwp-subscribers&action=edit&subscriber_id=' . $es->subscriber_id ) ); ?>"
+								   class="ecwp-btn ecwp-btn-secondary ecwp-btn-sm">View</a>
+							<?php endif; ?>
+						</td>
+					</tr>
+				<?php endforeach; ?>
+				</tbody>
+			</table>
+		</div>
+	</div>
+	<?php elseif ( $event_filter && empty( $event_subscribers ) ) : ?>
+	<div class="ecwp-notice ecwp-notice-info">
+		No <?php echo esc_html( $event_filter ); ?> events recorded yet.
+		<?php if ( empty( $recent_events ) ) : ?>
+			Make sure your <a href="<?php echo admin_url('admin.php?page=ecwp-analytics'); ?>">Mailgun webhook</a> is configured.
+		<?php endif; ?>
+	</div>
+	<?php endif; ?>
+
+	<!-- ── Link Performance (custom first-party tracking) ──────────── -->
+	<?php if ( $custom_tracking_on && ( ! empty( $link_stats ) || ! empty( $link_clickers ) ) ) : ?>
+	<div class="ecwp-card">
+		<div class="ecwp-card-header">
+			<span class="dashicons dashicons-admin-links"></span> Link Performance
+			<span class="ecwp-hint" style="font-weight:normal;margin-left:10px;">
+				<?php echo number_format( $link_click_totals['total_clicks'] ); ?> total clicks
+				&mdash; <?php echo number_format( $link_click_totals['unique_clickers'] ); ?> unique clickers
+				<?php if ( $selected_id ) : ?>
+					(this campaign)
+				<?php else : ?>
+					(all campaigns)
+				<?php endif; ?>
+			</span>
+		</div>
+		<div class="ecwp-card-body ecwp-no-pad">
+			<?php if ( empty( $link_stats ) ) : ?>
+				<div class="ecwp-empty" style="padding:24px;">No link clicks recorded yet for this campaign.</div>
+			<?php else : ?>
+			<table class="ecwp-table ecwp-table-hover">
+				<thead>
+					<tr>
+						<th>Link URL</th>
+						<th style="text-align:right;width:120px;">Total Clicks</th>
+						<th style="text-align:right;width:140px;">Unique Clickers</th>
+					</tr>
+				</thead>
+				<tbody>
+				<?php foreach ( $link_stats as $ls ) : ?>
+					<tr>
+						<td>
+							<a href="<?php echo esc_url( $ls->link_url ); ?>" target="_blank" rel="noopener"
+							   style="max-width:420px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;"
+							   title="<?php echo esc_attr( $ls->link_url ); ?>">
+								<?php echo esc_html( $ls->link_url ); ?>
+							</a>
+						</td>
+						<td style="text-align:right;font-weight:600;"><?php echo number_format( $ls->total_clicks ); ?></td>
+						<td style="text-align:right;"><?php echo number_format( $ls->unique_clickers ); ?></td>
+					</tr>
+				<?php endforeach; ?>
+				</tbody>
+			</table>
+			<?php endif; ?>
+		</div>
+	</div>
+
+	<!-- Per-subscriber click detail -->
+	<?php if ( ! empty( $link_clickers ) ) : ?>
+	<div class="ecwp-card">
+		<div class="ecwp-card-header">
+			<span class="dashicons dashicons-admin-users"></span> Who Clicked &amp; What
+		</div>
+		<div class="ecwp-card-body ecwp-no-pad">
+			<table class="ecwp-table ecwp-table-hover">
+				<thead>
+					<tr>
+						<th>Subscriber</th>
+						<th>Link Clicked</th>
+						<th style="text-align:right;width:90px;">Clicks</th>
+						<th style="width:140px;">First Click</th>
+						<th style="width:140px;">Last Click</th>
+					</tr>
+				</thead>
+				<tbody>
+				<?php foreach ( $link_clickers as $lc ) : ?>
+					<tr>
+						<td>
+							<?php if ( $lc->subscriber_id ) : ?>
+								<a href="<?php echo esc_url( admin_url( "admin.php?page=ecwp-subscribers&action=edit&subscriber_id={$lc->subscriber_id}" ) ); ?>">
+									<?php echo esc_html( trim( ( $lc->first_name ?? '' ) . ' ' . ( $lc->last_name ?? '' ) ) ?: $lc->email ); ?>
+								</a>
+								<br><span class="ecwp-hint" style="font-size:11px;"><?php echo esc_html( $lc->email ); ?></span>
+							<?php else : ?>
+								<?php echo esc_html( $lc->email ); ?>
+							<?php endif; ?>
+						</td>
+						<td>
+							<a href="<?php echo esc_url( $lc->link_url ); ?>" target="_blank" rel="noopener"
+							   style="max-width:300px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;font-size:12px;"
+							   title="<?php echo esc_attr( $lc->link_url ); ?>">
+								<?php echo esc_html( $lc->link_url ); ?>
+							</a>
+						</td>
+						<td style="text-align:right;font-weight:600;"><?php echo number_format( $lc->click_count ); ?></td>
+						<td style="white-space:nowrap;" class="ecwp-hint"><?php echo esc_html( $lc->first_click ? date( 'M j, g:i a', strtotime( $lc->first_click ) ) : '—' ); ?></td>
+						<td style="white-space:nowrap;" class="ecwp-hint"><?php echo esc_html( $lc->last_click  ? date( 'M j, g:i a', strtotime( $lc->last_click  ) ) : '—' ); ?></td>
+					</tr>
+				<?php endforeach; ?>
+				</tbody>
+			</table>
+		</div>
+	</div>
+	<?php endif; ?>
+	<?php elseif ( $custom_tracking_on ) : ?>
+	<div class="ecwp-card">
+		<div class="ecwp-card-header"><span class="dashicons dashicons-admin-links"></span> Link Performance</div>
+		<div class="ecwp-card-body">
+			<div class="ecwp-empty">No link clicks recorded yet. Clicks will appear here once subscribers start clicking links in your campaigns.</div>
+		</div>
+	</div>
+	<?php elseif ( ! $custom_tracking_on ) : ?>
+	<div class="ecwp-card" style="border:1px dashed #d1d5db;">
+		<div class="ecwp-card-header" style="color:#6b7280;"><span class="dashicons dashicons-admin-links"></span> Link Performance <span class="ecwp-hint">(disabled)</span></div>
+		<div class="ecwp-card-body">
+			<p class="ecwp-hint">Enable <strong>Custom Link Tracking</strong> in
+				<a href="<?php echo admin_url( 'admin.php?page=ecwp-settings' ); ?>">Settings</a>
+				to track which specific links subscribers click, with full per-subscriber detail stored in your own database.</p>
+		</div>
+	</div>
+	<?php endif; ?>
 
 	<!-- Per-campaign breakdown -->
 	<?php if ( ! $selected_id && ! empty( $campaign_stats ) ) : ?>

@@ -179,6 +179,57 @@ class ECWP_Activator {
 			KEY event_type  (event_type)
 		) $c;" );
 
+		/* ── First-party link click tracking ─────────────────────────── */
+		dbDelta( "CREATE TABLE {$wpdb->prefix}ecwp_link_clicks (
+			id             BIGINT(20)   NOT NULL AUTO_INCREMENT,
+			campaign_id    BIGINT(20)   NOT NULL DEFAULT 0,
+			subscriber_id  BIGINT(20)   NOT NULL DEFAULT 0,
+			email          VARCHAR(255) NOT NULL DEFAULT '',
+			link_url       TEXT         NOT NULL,
+			link_hash      VARCHAR(32)  NOT NULL DEFAULT '',
+			clicked_at     DATETIME     NOT NULL,
+			ip_address     VARCHAR(45)  NOT NULL DEFAULT '',
+			user_agent     VARCHAR(500) NOT NULL DEFAULT '',
+			PRIMARY KEY (id),
+			KEY campaign_id   (campaign_id),
+			KEY subscriber_id (subscriber_id),
+			KEY link_hash     (link_hash),
+			KEY clicked_at    (clicked_at)
+		) $c;" );
+
+		/* ── Drip automations ─────────────────────────────────────────── */
+		dbDelta( "CREATE TABLE {$wpdb->prefix}ecwp_automations (
+			id                    BIGINT(20)   NOT NULL AUTO_INCREMENT,
+			name                  VARCHAR(255) NOT NULL DEFAULT '',
+			trigger_campaign_id   BIGINT(20)   NOT NULL,
+			followup_campaign_id  BIGINT(20)   NOT NULL,
+			condition             VARCHAR(50)  NOT NULL DEFAULT 'not_clicked',
+			delay_days            INT          NOT NULL DEFAULT 5,
+			status                VARCHAR(20)  NOT NULL DEFAULT 'active',
+			last_run_at           DATETIME     DEFAULT NULL,
+			total_sent            INT          NOT NULL DEFAULT 0,
+			created_at            DATETIME     NOT NULL,
+			PRIMARY KEY (id),
+			KEY trigger_campaign_id  (trigger_campaign_id),
+			KEY followup_campaign_id (followup_campaign_id),
+			KEY status               (status)
+		) $c;" );
+
+		/* ── Automation send log ───────────────────────────────────────── */
+		dbDelta( "CREATE TABLE {$wpdb->prefix}ecwp_automation_log (
+			id             BIGINT(20)   NOT NULL AUTO_INCREMENT,
+			automation_id  BIGINT(20)   NOT NULL,
+			subscriber_id  BIGINT(20)   NOT NULL DEFAULT 0,
+			email          VARCHAR(255) NOT NULL DEFAULT '',
+			campaign_id    BIGINT(20)   NOT NULL DEFAULT 0,
+			message_id     VARCHAR(255) NOT NULL DEFAULT '',
+			sent_at        DATETIME     NOT NULL,
+			PRIMARY KEY (id),
+			KEY automation_id (automation_id),
+			KEY subscriber_id (subscriber_id),
+			UNIQUE KEY automation_email (automation_id, email)
+		) $c;" );
+
 		update_option( 'ecwp_db_version', ECWP_VERSION );
 	}
 

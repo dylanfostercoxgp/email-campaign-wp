@@ -29,7 +29,9 @@ class ECWP_Mailgun {
 		$from = $from_name ? "{$from_name} <{$from_email}>" : $from_email;
 		$to   = $to_name   ? "{$to_name} <{$to_email}>"     : $to_email;
 
-		$click_tracking = get_option( 'ecwp_click_tracking', '0' ) === '1' ? 'yes' : 'no';
+		// Allow other code to force click-tracking off (e.g. when our own tracker handles it).
+		$click_tracking_on = apply_filters( 'ecwp_mailgun_click_tracking', get_option( 'ecwp_click_tracking', '0' ) === '1' );
+		$click_tracking    = $click_tracking_on ? 'yes' : 'no';
 
 		$body = [
 			'from'                => $from,

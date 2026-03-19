@@ -73,13 +73,30 @@
 							       class="ecwp-toggle-input"
 							       <?php checked( get_option( 'ecwp_click_tracking', '0' ), '1' ); ?>>
 							<span class="ecwp-toggle"></span>
-							<strong>Enable click tracking</strong>
+							<strong>Enable Mailgun click tracking</strong>
 						</label>
 						<p class="ecwp-hint" style="margin-top:6px;">
 							⚠️ <strong>Leave this OFF unless you have configured a custom tracking domain with a valid SSL cert in Mailgun.</strong>
 							When enabled, Mailgun rewrites every link in outgoing emails to redirect through your Mailgun sending domain (e.g. <code>email.mg.yourdomain.com</code>).
 							If that subdomain does not have a valid SSL certificate, every link will show a browser security warning for recipients.
 							Open tracking (email open pixel) is always active and is unaffected by this setting.
+						</p>
+					</div>
+					<div class="ecwp-field">
+						<label class="ecwp-toggle-label">
+							<input type="checkbox"
+							       name="ecwp_custom_link_tracking"
+							       value="1"
+							       class="ecwp-toggle-input"
+							       <?php checked( get_option( 'ecwp_custom_link_tracking', '0' ), '1' ); ?>>
+							<span class="ecwp-toggle"></span>
+							<strong>Enable custom (first-party) link tracking</strong>
+						</label>
+						<p class="ecwp-hint" style="margin-top:6px;">
+							✅ <strong>Recommended.</strong> Replaces every link in outgoing emails with a redirect through <em>your own site</em> before reaching the destination.
+							Tracks which specific link was clicked, how many times, and by whom — stored in your own database. No SSL domain setup required.
+							When this is on, Mailgun's click tracking is automatically disabled to avoid a double-redirect chain.
+							See results in <a href="<?php echo admin_url('admin.php?page=ecwp-analytics'); ?>">Analytics → Link Performance</a>.
 						</p>
 					</div>
 					<!-- Test Connection — button only; the actual form is outside this form below -->
@@ -118,42 +135,7 @@
 				</div>
 			</div>
 
-			<!-- Global Schedule -->
-			<div class="ecwp-card">
-				<div class="ecwp-card-header">
-					<span class="dashicons dashicons-clock"></span> Global Schedule
-				</div>
-				<div class="ecwp-card-body">
-					<div class="ecwp-field">
-						<label class="ecwp-toggle-label">
-							<input type="checkbox"
-							       name="ecwp_schedule_enabled"
-							       value="1"
-							       class="ecwp-toggle-input"
-							       <?php checked( get_option( 'ecwp_schedule_enabled', '0' ), '1' ); ?>>
-							<span class="ecwp-toggle"></span>
-							<strong>Enable daily schedule</strong>
-						</label>
-						<p class="ecwp-hint" style="margin-top:6px;">When enabled, campaigns with scheduling turned on will fire automatically every day at the time below.</p>
-					</div>
-					<div class="ecwp-field">
-						<label for="ecwp_send_time">Daily Trigger Time</label>
-						<input type="time"
-						       id="ecwp_send_time"
-						       name="ecwp_send_time"
-						       value="<?php echo esc_attr( get_option( 'ecwp_send_time', '10:00' ) ); ?>"
-						       class="ecwp-input ecwp-input-sm">
-						<span class="ecwp-hint">Uses WordPress site timezone (<?php echo esc_html( wp_timezone_string() ); ?>)</span>
-					</div>
-					<?php
-					$next = wp_next_scheduled( 'ecwp_daily_trigger' );
-					if ( $next ) : ?>
-						<div class="ecwp-notice ecwp-notice-info" style="margin-top:12px;">
-							Next trigger: <strong><?php echo esc_html( get_date_from_gmt( date( 'Y-m-d H:i:s', $next ), 'M j, Y \a\t g:i a' ) ); ?></strong>
-						</div>
-					<?php endif; ?>
-				</div>
-			</div>
+
 
 			<!-- Default Batch Settings -->
 			<div class="ecwp-card">
@@ -265,6 +247,66 @@
 		<input type="hidden" name="test_email"  id="ecwp-st-email">
 		<?php wp_nonce_field( 'ecwp_send_test' ); ?>
 	</form>
+
+	<!-- ═══════════════════════════════════════════════════════════════════
+	     Automations status
+	     ═══════════════════════════════════════════════════════════════════ -->
+	<div class="ecwp-card">
+		<div class="ecwp-card-header"><span class="dashicons dashicons-controls-play"></span> Drip Automations</div>
+		<div class="ecwp-card-body">
+			<?php
+			global $wpdb;
+			$auto_table   = $wpdb->prefix . 'ecwp_automations';
+			$table_exists = $wpdb->get_var( "SHOW TABLES LIKE '{$auto_table}'" ) === $auto_table;
+
+			if ( $table_exists ) {
+				$active_autos  = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$auto_table} WHERE status = 'active'" );
+				$paused_autos  = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$auto_table} WHERE status = 'paused'" );
+				$total_auto_sent = (int) $wpdb->get_var( "SELECT SUM(total_sent) FROM {$auto_table}" );
+				$next_cron     = wp_next_scheduled( 'ecwp_evaluate_automations' );
+			} else {
+				$active_autos = $paused_autos = $total_auto_sent = 0;
+				$next_cron = false;
+			}
+			?>
+			<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;">
+				<div style="display:flex;gap:16px;flex-wrap:wrap;">
+					<div style="text-align:center;min-width:80px;">
+						<div style="font-size:22px;font-weight:700;color:#16a34a;"><?php echo $active_autos; ?></div>
+						<div class="ecwp-hint">Active</div>
+					</div>
+					<div style="text-align:center;min-width:80px;">
+						<div style="font-size:22px;font-weight:700;color:#64748b;"><?php echo $paused_autos; ?></div>
+						<div class="ecwp-hint">Paused</div>
+					</div>
+					<div style="text-align:center;min-width:80px;">
+						<div style="font-size:22px;font-weight:700;color:#2563eb;"><?php echo number_format( $total_auto_sent ); ?></div>
+						<div class="ecwp-hint">Total Sent</div>
+					</div>
+				</div>
+				<div style="flex:1;min-width:200px;">
+					<div class="ecwp-field" style="margin:0;">
+						<label style="margin-bottom:4px;">Next Automatic Evaluation</label>
+						<div class="ecwp-hint" style="font-size:13px;">
+							<?php
+							if ( $next_cron ) {
+								echo '<strong>' . esc_html( date( 'M j, Y \a\t g:i a', $next_cron ) ) . '</strong>';
+								echo ' (' . esc_html( human_time_diff( time(), $next_cron ) ) . ' from now)';
+							} else {
+								echo '<span style="color:#dc2626;">Not scheduled</span> — <a href="' . admin_url( 'admin.php?page=ecwp-automations' ) . '">create an automation</a> to activate.';
+							}
+							?>
+						</div>
+					</div>
+					<div style="margin-top:12px;">
+						<a href="<?php echo admin_url( 'admin.php?page=ecwp-automations' ); ?>" class="ecwp-btn ecwp-btn-secondary ecwp-btn-sm">
+							<span class="dashicons dashicons-controls-play"></span> Manage Automations
+						</a>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
 
 	<div class="ecwp-footer">
 		Email Campaign WP <?php echo ECWP_VERSION; ?> &mdash;

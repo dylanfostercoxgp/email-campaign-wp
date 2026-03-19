@@ -22,17 +22,54 @@ class ECWP_Subscribers {
 	/*  Read                                                                */
 	/* ------------------------------------------------------------------ */
 
-	public function get_all( $status = 'all', $limit = 0, $offset = 0 ) {
+	/**
+	 * @param string $status    'all' | 'active' | 'unsubscribed'
+	 * @param int    $limit     0 = no limit
+	 * @param int    $offset
+	 * @param string $orderby   email | first_name | last_name | status | subscribed_at
+	 * @param string $order     ASC | DESC
+	 * @param int    $tag_id    0 = no tag filter; >0 = only subscribers with that tag
+	 */
+	public function get_all( $status = 'all', $limit = 0, $offset = 0, $orderby = 'subscribed_at', $order = 'DESC', $tag_id = 0 ) {
 		global $wpdb;
-		$where        = ( $status !== 'all' ) ? $wpdb->prepare( ' WHERE status = %s', $status ) : '';
+
+		$allowed_orderby = [ 'email', 'first_name', 'last_name', 'status', 'subscribed_at' ];
+		$orderby = in_array( $orderby, $allowed_orderby, true ) ? $orderby : 'subscribed_at';
+		$order   = strtoupper( $order ) === 'ASC' ? 'ASC' : 'DESC';
+
+		$join  = '';
+		$where = '';
+
+		if ( $tag_id > 0 ) {
+			$join  = " INNER JOIN {$this->tag_pivot} tp ON {$this->table}.id = tp.subscriber_id AND tp.tag_id = " . intval( $tag_id );
+		}
+
+		if ( $status !== 'all' ) {
+			$where = $wpdb->prepare( ' WHERE status = %s', $status );
+		}
+
 		$limit_clause = $limit ? $wpdb->prepare( ' LIMIT %d OFFSET %d', $limit, $offset ) : '';
-		return $wpdb->get_results( "SELECT * FROM {$this->table}{$where} ORDER BY subscribed_at DESC{$limit_clause}" );
+
+		return $wpdb->get_results(
+			"SELECT {$this->table}.* FROM {$this->table}{$join}{$where} ORDER BY {$this->table}.{$orderby} {$order}{$limit_clause}"
+		);
 	}
 
-	public function count( $status = 'all' ) {
+	public function count( $status = 'all', $tag_id = 0 ) {
 		global $wpdb;
-		$where = ( $status !== 'all' ) ? $wpdb->prepare( ' WHERE status = %s', $status ) : '';
-		return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$this->table}{$where}" );
+
+		$join  = '';
+		$where = '';
+
+		if ( $tag_id > 0 ) {
+			$join = " INNER JOIN {$this->tag_pivot} tp ON {$this->table}.id = tp.subscriber_id AND tp.tag_id = " . intval( $tag_id );
+		}
+
+		if ( $status !== 'all' ) {
+			$where = $wpdb->prepare( ' WHERE status = %s', $status );
+		}
+
+		return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$this->table}{$join}{$where}" );
 	}
 
 	public function get_by_id( $id ) {

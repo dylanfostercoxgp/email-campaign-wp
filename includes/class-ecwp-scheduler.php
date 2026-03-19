@@ -190,7 +190,9 @@ class ECWP_Scheduler {
 			return;
 		}
 
-		$mailgun    = new ECWP_Mailgun();
+		$mailgun        = new ECWP_Mailgun();
+		$link_tracker   = new ECWP_Link_Tracker();
+		$custom_tracking = get_option( 'ecwp_custom_link_tracking', '0' ) === '1';
 		$from_name  = get_option( 'ecwp_from_name',  'ideaBoss' );
 		$from_email = get_option( 'ecwp_from_email', '' );
 		$log_table  = $wpdb->prefix . 'ecwp_send_log';
@@ -208,6 +210,11 @@ class ECWP_Scheduler {
 			}
 
 			$html = $this->inject_preview_text( $campaign->html_content, $campaign->preview_text ?? '' );
+			// Inject first-party tracking links before personalisation (so tracking
+			// URLs themselves don't get mangled by merge-tag replacement).
+			if ( $custom_tracking ) {
+				$html = $link_tracker->inject_tracking_links( $html, $campaign_id, $sub_id );
+			}
 			$html = $this->personalize( $html, $subscriber, $campaign_id );
 
 			// Insert a pending log row first (so unsent check excludes this sub).
@@ -219,6 +226,12 @@ class ECWP_Scheduler {
 			] );
 			$log_id = $wpdb->insert_id;
 
+			// When custom link tracking is on, tell Mailgun not to wrap our
+			// already-wrapped links a second time.
+			if ( $custom_tracking ) {
+				add_filter( 'ecwp_mailgun_click_tracking', '__return_false', 99 );
+			}
+
 			$result = $mailgun->send_email(
 				$subscriber->email,
 				trim( $subscriber->first_name . ' ' . $subscriber->last_name ),
@@ -229,6 +242,10 @@ class ECWP_Scheduler {
 				'',
 				[ 'ecwp-campaign-' . $campaign_id, 'batch-' . $batch_number ]
 			);
+
+			if ( $custom_tracking ) {
+				remove_filter( 'ecwp_mailgun_click_tracking', '__return_false', 99 );
+			}
 
 			if ( is_wp_error( $result ) ) {
 				$wpdb->update( $log_table, [ 'status' => 'failed' ], [ 'id' => $log_id ] );
