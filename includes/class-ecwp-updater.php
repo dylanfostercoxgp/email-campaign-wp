@@ -74,12 +74,20 @@ class ECWP_Updater {
 			return $cached;
 		}
 
-		$url      = 'https://api.github.com/repos/' . self::REPO . '/releases/latest';
+		$url     = 'https://api.github.com/repos/' . self::REPO . '/releases/latest';
+		$headers = [
+			'Accept'     => 'application/vnd.github+json',
+			'User-Agent' => 'WordPress/' . get_bloginfo( 'version' ) . '; ' . get_bloginfo( 'url' ),
+		];
+
+		// Attach stored PAT so private repos are accessible
+		$token = get_option( 'ecwp_github_token', '' );
+		if ( $token ) {
+			$headers['Authorization'] = 'Bearer ' . $token;
+		}
+
 		$response = wp_remote_get( $url, [
-			'headers' => [
-				'Accept'     => 'application/vnd.github+json',
-				'User-Agent' => 'WordPress/' . get_bloginfo( 'version' ) . '; ' . get_bloginfo( 'url' ),
-			],
+			'headers' => $headers,
 			'timeout' => 10,
 		] );
 
@@ -90,6 +98,16 @@ class ECWP_Updater {
 		$release = json_decode( wp_remote_retrieve_body( $response ) );
 		if ( empty( $release->tag_name ) ) {
 			return false;
+		}
+
+		// For private repos WordPress also needs auth to download the zip.
+		// Embed the token into the download URL so the upgrader can fetch it.
+		if ( $token && isset( $release->zipball_url ) ) {
+			$release->zipball_url = str_replace(
+				'https://api.github.com/',
+				'https://' . $token . ':x-oauth-basic@api.github.com/',
+				$release->zipball_url
+			);
 		}
 
 		set_transient( self::TRANSIENT, $release, self::CACHE_TTL );

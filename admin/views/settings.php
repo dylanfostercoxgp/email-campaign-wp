@@ -191,7 +191,50 @@
 				</div>
 			</div>
 
-			<!-- System Info -->
+			<!-- Plugin Updates -->
+		<div class="ecwp-card">
+			<div class="ecwp-card-header">
+				<span class="dashicons dashicons-update"></span> Plugin Updates
+			</div>
+			<div class="ecwp-card-body">
+				<div class="ecwp-field">
+					<label for="ecwp_github_token">GitHub Personal Access Token</label>
+					<input type="password"
+					       id="ecwp_github_token"
+					       name="ecwp_github_token"
+					       value="<?php echo esc_attr( get_option( 'ecwp_github_token', '' ) ); ?>"
+					       class="ecwp-input"
+					       placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+					       autocomplete="off">
+					<span class="ecwp-hint">
+						Required because this plugin is hosted in a <strong>private</strong> GitHub repository.
+						Generate a token at <a href="https://github.com/settings/tokens" target="_blank">GitHub → Settings → Developer settings → Tokens</a>
+						with the <code>repo</code> scope.  Once saved, WordPress will detect new releases automatically
+						and show an <strong>Update</strong> button in <a href="<?php echo admin_url('plugins.php'); ?>">Plugins</a>
+						whenever a new version is pushed.
+					</span>
+				</div>
+				<?php
+				// Show current update status
+				$release_cache = get_transient( 'ecwp_github_release' );
+				if ( $release_cache ) {
+					$remote_ver = ltrim( $release_cache->tag_name ?? '', 'v' );
+					if ( version_compare( ECWP_VERSION, $remote_ver, '<' ) ) {
+						echo '<div class="ecwp-notice ecwp-notice-warning" style="margin-top:8px;">⬆️ Update available: <strong>v' . esc_html( $remote_ver ) . '</strong> — go to <a href="' . admin_url('plugins.php') . '">Plugins</a> to update.</div>';
+					} else {
+						echo '<div class="ecwp-notice ecwp-notice-success" style="margin-top:8px;">✅ Plugin is up to date (v' . esc_html( ECWP_VERSION ) . ').</div>';
+					}
+				}
+				?>
+				<div style="margin-top:12px;">
+					<button type="button" class="ecwp-btn ecwp-btn-secondary ecwp-btn-sm"
+					        onclick="ecwpCheckUpdates()">Check for Updates Now</button>
+					<span class="ecwp-hint" style="margin-left:8px;">Updates are also checked automatically every 12 hours.</span>
+				</div>
+			</div>
+		</div>
+
+		<!-- System Info -->
 			<div class="ecwp-card">
 				<div class="ecwp-card-header">
 					<span class="dashicons dashicons-info"></span> System Info
@@ -349,5 +392,22 @@ function ecwpSendTest() {
 	}
 	document.getElementById('ecwp-st-email').value = email.value;
 	document.getElementById('ecwp-send-test-form').submit();
+}
+
+/**
+ * Check for plugin updates — deletes the cached release transient via AJAX
+ * then reloads so WordPress re-fetches from GitHub on next update check.
+ */
+function ecwpCheckUpdates() {
+	var btn = event.target;
+	btn.disabled = true;
+	btn.textContent = 'Checking…';
+	fetch( ajaxurl, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+		body: 'action=ecwp_clear_update_cache&_ajax_nonce=<?php echo wp_create_nonce("ecwp_clear_update_cache"); ?>',
+	} ).then( function() {
+		window.location.href = '<?php echo admin_url("update-core.php?force-check=1"); ?>';
+	} );
 }
 </script>

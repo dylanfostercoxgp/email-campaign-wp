@@ -43,6 +43,7 @@ class ECWP_Admin {
 
 		// ── AJAX handlers ─────────────────────────────────────────────
 		add_action( 'wp_ajax_ecwp_autosave_html',          [ $this, 'ajax_autosave_html' ] );
+		add_action( 'wp_ajax_ecwp_clear_update_cache',     [ $this, 'ajax_clear_update_cache' ] );
 	}
 
 	/* ------------------------------------------------------------------ */
@@ -332,6 +333,7 @@ class ECWP_Admin {
 			'ecwp_mailgun_api_key', 'ecwp_mailgun_domain', 'ecwp_mailgun_region',
 			'ecwp_from_name', 'ecwp_from_email', 'ecwp_send_time',
 			'ecwp_batch_size', 'ecwp_batch_interval',
+			'ecwp_github_token',
 		] as $field ) {
 			if ( isset( $_POST[ $field ] ) ) {
 				update_option( $field, sanitize_text_field( $_POST[ $field ] ) );
@@ -1017,5 +1019,20 @@ class ECWP_Admin {
 			wp_send_json_success( [ 'message' => 'Saved', 'time' => current_time( 'H:i:s' ) ] );
 		}
 		wp_send_json_error( 'Missing campaign_id' );
+	}
+
+	/**
+	 * Clear the cached GitHub release info so the next update check is fresh.
+	 * Called by the "Check for Updates Now" button on the Settings page.
+	 */
+	public function ajax_clear_update_cache() {
+		check_ajax_referer( 'ecwp_clear_update_cache' );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( 'Unauthorized' );
+		}
+		delete_transient( 'ecwp_github_release' );
+		// Also force WordPress to re-check all plugin updates on next load
+		delete_site_transient( 'update_plugins' );
+		wp_send_json_success();
 	}
 }
