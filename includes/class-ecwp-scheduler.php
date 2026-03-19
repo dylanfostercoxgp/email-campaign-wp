@@ -59,29 +59,25 @@ class ECWP_Scheduler {
 	/* ------------------------------------------------------------------ */
 
 	/**
-	 * Schedule a single-fire cron event for a campaign at its send_time.
-	 * If the send_time has already passed today, schedule for tomorrow.
+	 * Schedule a single-fire cron event for a campaign at a specific date + time.
 	 *
 	 * @param int    $campaign_id
-	 * @param string $send_time  "HH:MM" in site local time
+	 * @param string $datetime_local  "Y-m-d H:i" in site local time (e.g. "2026-04-15 10:30")
+	 * @return bool  true on success, false if the datetime is in the past or invalid.
 	 */
-	public function schedule_campaign( $campaign_id, $send_time ) {
+	public function schedule_campaign( $campaign_id, $datetime_local ) {
 		// Remove any existing scheduled event for this campaign first.
 		$this->unschedule_campaign( $campaign_id );
 
-		list( $hour, $minute ) = array_pad( explode( ':', $send_time ), 2, '00' );
-
 		$site_tz = wp_timezone();
-		$now     = new DateTime( 'now', $site_tz );
-		$target  = clone $now;
-		$target->setTime( (int) $hour, (int) $minute, 0 );
+		$target  = DateTime::createFromFormat( 'Y-m-d H:i', $datetime_local, $site_tz );
 
-		// If the time has already passed today, schedule for tomorrow.
-		if ( $target <= $now ) {
-			$target->modify( '+1 day' );
+		if ( ! $target || $target->getTimestamp() <= time() ) {
+			return false; // Past datetime or invalid format.
 		}
 
 		wp_schedule_single_event( $target->getTimestamp(), 'ecwp_fire_campaign', [ $campaign_id ] );
+		return true;
 	}
 
 	/**

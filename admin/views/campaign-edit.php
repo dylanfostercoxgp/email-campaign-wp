@@ -31,6 +31,9 @@ $assigned_ids = array_column( (array) $campaign_subscribers, 'id' );
 	<?php if ( isset( $_GET['unscheduled'] ) ) : ?>
 		<div class="ecwp-notice ecwp-notice-info">Campaign unscheduled and set back to draft.</div>
 	<?php endif; ?>
+	<?php if ( isset( $_GET['schedule_error'] ) && $_GET['schedule_error'] === 'past' ) : ?>
+		<div class="ecwp-notice ecwp-notice-error">&#9888; That date and time is already in the past. Please choose a future date and time.</div>
+	<?php endif; ?>
 
 	<!-- Quick actions — buttons vary by campaign status -->
 	<?php
@@ -55,15 +58,28 @@ $assigned_ids = array_column( (array) $campaign_subscribers, 'id' );
 		</form>
 		<?php endif; ?>
 
-		<!-- Schedule Send — shown for draft / paused -->
+		<!-- Schedule Send — shown for draft / paused: includes date + time pickers -->
 		<?php if ( $is_draft ) : ?>
-		<form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>" style="flex:1;min-width:160px;">
+		<form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>" style="flex:1;">
 			<input type="hidden" name="action"      value="ecwp_schedule_campaign">
 			<input type="hidden" name="campaign_id" value="<?php echo $campaign->id; ?>">
 			<?php wp_nonce_field( 'ecwp_schedule_campaign' ); ?>
-			<button type="submit" class="ecwp-btn ecwp-btn-success ecwp-btn-lg" style="width:100%;">
-				<span class="dashicons dashicons-calendar-alt"></span> Schedule Send
-			</button>
+			<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+				<input type="date" name="send_date"
+				       class="ecwp-input ecwp-input-sm"
+				       value="<?php echo esc_attr( date( 'Y-m-d' ) ); ?>"
+				       min="<?php echo esc_attr( date( 'Y-m-d' ) ); ?>"
+				       required
+				       style="width:145px;">
+				<input type="time" name="send_time"
+				       class="ecwp-input ecwp-input-sm"
+				       value="<?php echo esc_attr( $campaign->send_time ?: '10:00' ); ?>"
+				       required
+				       style="width:100px;">
+				<button type="submit" class="ecwp-btn ecwp-btn-success ecwp-btn-lg">
+					<span class="dashicons dashicons-calendar-alt"></span> Schedule
+				</button>
+			</div>
 		</form>
 		<?php endif; ?>
 
@@ -95,7 +111,8 @@ $assigned_ids = array_column( (array) $campaign_subscribers, 'id' );
 	</div>
 	<?php if ( $is_sched && $next_run ) : ?>
 		<div class="ecwp-notice ecwp-notice-info" style="margin-top:10px;">
-			🕐 <strong>Scheduled:</strong> will send on <?php echo esc_html( get_date_from_gmt( date( 'Y-m-d H:i:s', $next_run ), 'M j, Y \a\t g:i a' ) ); ?>
+			🕐 <strong>One-Time Send Scheduled:</strong> will fire on <strong><?php echo esc_html( get_date_from_gmt( date( 'Y-m-d H:i:s', $next_run ), 'M j, Y \a\t g:i a' ) ); ?></strong>
+			<span class="ecwp-hint" style="margin-left:8px;">(<?php echo esc_html( wp_timezone_string() ); ?> timezone)</span>
 		</div>
 	<?php endif; ?>
 

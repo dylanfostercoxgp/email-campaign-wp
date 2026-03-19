@@ -15,6 +15,9 @@
 	<?php if ( isset( $_GET['deleted'] ) ) : ?>
 		<div class="ecwp-notice ecwp-notice-success">Tag deleted.</div>
 	<?php endif; ?>
+	<?php if ( isset( $_GET['updated'] ) ) : ?>
+		<div class="ecwp-notice ecwp-notice-success">Tag updated successfully.</div>
+	<?php endif; ?>
 
 	<div class="ecwp-two-col">
 
@@ -71,8 +74,12 @@
 								<td><?php echo number_format( $tag->subscriber_count ); ?></td>
 								<td><?php echo esc_html( date( 'M j, Y', strtotime( $tag->created_at ) ) ); ?></td>
 								<td class="ecwp-actions">
+									<a href="<?php echo esc_url( admin_url( 'admin.php?page=ecwp-tags&action=view&tag_id=' . $tag->id ) ); ?>"
+									   class="ecwp-btn ecwp-btn-secondary ecwp-btn-sm">View</a>
+									<a href="<?php echo esc_url( admin_url( 'admin.php?page=ecwp-tags&action=edit&tag_id=' . $tag->id ) ); ?>"
+									   class="ecwp-btn ecwp-btn-secondary ecwp-btn-sm">Edit</a>
 									<form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>"
-									      class="ecwp-confirm-form"
+									      class="ecwp-confirm-form" style="display:inline;"
 									      data-confirm="Delete tag &quot;<?php echo esc_attr( $tag->name ); ?>&quot;? This removes it from all subscribers.">
 										<input type="hidden" name="action"   value="ecwp_delete_tag">
 										<input type="hidden" name="tag_id"   value="<?php echo $tag->id; ?>">

@@ -144,7 +144,7 @@
 	<!-- Bulk tag + subscriber table -->
 	<div class="ecwp-card">
 		<div class="ecwp-card-header">
-			<span class="dashicons dashicons-list-view"></span> All Subscribers (<?php echo count( $all_subscribers ); ?>)
+			<span class="dashicons dashicons-list-view"></span> All Subscribers (<?php echo number_format( $total_count ); ?>)
 			<div style="margin-left:auto;">
 				<input type="text" class="ecwp-input ecwp-input-sm" placeholder="Search…" oninput="filterTable(this,'ecwp-sub-table')" style="width:180px;">
 			</div>
@@ -237,6 +237,36 @@
 						</tbody>
 					</table>
 				</form><!-- end #ecwp-bulk-tag-form -->
+
+				<!-- Pagination -->
+				<?php if ( $total_pages > 1 ) : ?>
+				<div class="ecwp-pagination" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:12px 14px;border-top:1px solid #e5e7eb;background:#f9fafb;">
+					<span class="ecwp-hint" style="margin-right:4px;">
+						Page <?php echo $paged; ?> of <?php echo $total_pages; ?> &mdash; <?php echo number_format($total_count); ?> total
+					</span>
+					<?php
+					$base_url = admin_url( 'admin.php?page=ecwp-subscribers' );
+					// Show at most 10 page links around current page
+					$start = max( 1, $paged - 4 );
+					$end   = min( $total_pages, $start + 9 );
+					$start = max( 1, $end - 9 );
+					if ( $paged > 1 ) :
+					?>
+						<a href="<?php echo esc_url( add_query_arg( 'paged', $paged - 1, $base_url ) ); ?>"
+						   class="ecwp-btn ecwp-btn-secondary ecwp-btn-sm">&laquo; Prev</a>
+					<?php endif; ?>
+					<?php for ( $p = $start; $p <= $end; $p++ ) : ?>
+						<a href="<?php echo esc_url( add_query_arg( 'paged', $p, $base_url ) ); ?>"
+						   class="ecwp-btn <?php echo $p === $paged ? 'ecwp-btn-primary' : 'ecwp-btn-secondary'; ?> ecwp-btn-sm">
+							<?php echo $p; ?>
+						</a>
+					<?php endfor; ?>
+					<?php if ( $paged < $total_pages ) : ?>
+						<a href="<?php echo esc_url( add_query_arg( 'paged', $paged + 1, $base_url ) ); ?>"
+						   class="ecwp-btn ecwp-btn-secondary ecwp-btn-sm">Next &raquo;</a>
+					<?php endif; ?>
+				</div>
+				<?php endif; ?>
 
 				<!-- Shared delete form — sits OUTSIDE the bulk-tag form to prevent HTML nesting violation -->
 				<form id="ecwp-delete-sub-form" method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>" style="display:none;">

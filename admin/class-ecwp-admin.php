@@ -29,8 +29,10 @@ class ECWP_Admin {
 		add_action( 'admin_post_ecwp_unschedule_campaign', [ $this, 'unschedule_campaign' ] );
 		add_action( 'admin_post_ecwp_send_test',           [ $this, 'send_test_email' ] );
 		add_action( 'admin_post_ecwp_test_mailgun',        [ $this, 'test_mailgun_connection' ] );
-		add_action( 'admin_post_ecwp_create_tag',          [ $this, 'create_tag' ] );
-		add_action( 'admin_post_ecwp_delete_tag',          [ $this, 'delete_tag' ] );
+		add_action( 'admin_post_ecwp_create_tag',                    [ $this, 'create_tag' ] );
+		add_action( 'admin_post_ecwp_edit_tag',                      [ $this, 'edit_tag' ] );
+		add_action( 'admin_post_ecwp_delete_tag',                    [ $this, 'delete_tag' ] );
+		add_action( 'admin_post_ecwp_remove_subscriber_from_tag',    [ $this, 'remove_subscriber_from_tag' ] );
 		add_action( 'admin_post_ecwp_save_template',       [ $this, 'save_template' ] );
 		add_action( 'admin_post_ecwp_delete_template',     [ $this, 'delete_template' ] );
 
@@ -166,7 +168,12 @@ class ECWP_Admin {
 			$subscriber_tag_ids = array_column( $subscriber_tags, 'id' );
 			include ECWP_PLUGIN_DIR . 'admin/views/subscriber-edit.php';
 		} else {
-			$all_subscribers = $subscribers->get_all();
+			$per_page        = 100;
+			$paged           = max( 1, intval( $_GET['paged'] ?? 1 ) );
+			$total_count     = $subscribers->count();
+			$total_pages     = (int) ceil( $total_count / $per_page );
+			$offset          = ( $paged - 1 ) * $per_page;
+			$all_subscribers = $subscribers->get_all( 'all', $per_page, $offset );
 			$active_count    = $subscribers->count( 'active' );
 			$unsub_count     = $subscribers->count( 'unsubscribed' );
 			$all_tags        = $tags->get_all();
@@ -175,9 +182,24 @@ class ECWP_Admin {
 	}
 
 	public function page_tags() {
-		$tags     = new ECWP_Tags();
-		$all_tags = $tags->get_all(); // includes subscriber_count
-		include ECWP_PLUGIN_DIR . 'admin/views/tags.php';
+		$tags      = new ECWP_Tags();
+		$action    = sanitize_text_field( $_GET['action'] ?? 'list' );
+		$tag_id    = intval( $_GET['tag_id'] ?? 0 );
+
+		if ( $action === 'edit' && $tag_id ) {
+			$tag = $tags->get_by_id( $tag_id );
+			if ( ! $tag ) { wp_redirect( admin_url( 'admin.php?page=ecwp-tags' ) ); exit; }
+			include ECWP_PLUGIN_DIR . 'admin/views/tag-edit.php';
+		} elseif ( $action === 'view' && $tag_id ) {
+			$tag             = $tags->get_by_id( $tag_id );
+			if ( ! $tag ) { wp_redirect( admin_url( 'admin.php?page=ecwp-tags' ) ); exit; }
+			$tag_subscribers = $tags->get_tag_subscribers( $tag_id );
+			$all_tags        = $tags->get_all();
+			include ECWP_PLUGIN_DIR . 'admin/views/tag-view.php';
+		} else {
+			$all_tags = $tags->get_all(); // includes subscriber_count
+			include ECWP_PLUGIN_DIR . 'admin/views/tags.php';
+		}
 	}
 
 	public function page_templates() {
@@ -380,7 +402,13 @@ class ECWP_Admin {
 		}
 		$id = intval( $_POST['subscriber_id'] ?? 0 );
 		if ( $id ) { ( new ECWP_Subscribers() )->delete( $id ); }
-		wp_redirect( admin_url( 'admin.php?page=ecwp-subscribers&deleted=1' ) );
+		// Support custom redirect (e.g. back to a tag view), verified against admin URL.
+		$redirect = isset( $_POST['ecwp_redirect_to'] ) ? esc_url_raw( wp_unslash( $_POST['ecwp_redirect_to'] ) ) : '';
+		if ( $redirect && strpos( $redirect, admin_url() ) === 0 ) {
+			wp_redirect( $redirect );
+		} else {
+			wp_redirect( admin_url( 'admin.php?page=ecwp-subscribers&deleted=1' ) );
+		}
 		exit;
 	}
 
@@ -431,6 +459,33 @@ class ECWP_Admin {
 		$id = intval( $_POST['tag_id'] ?? 0 );
 		if ( $id ) { ( new ECWP_Tags() )->delete( $id ); }
 		wp_redirect( admin_url( 'admin.php?page=ecwp-tags&deleted=1' ) );
+		exit;
+	}
+
+	public function edit_tag() {
+		if ( ! current_user_can( 'manage_options' ) || ! check_admin_referer( 'ecwp_edit_tag' ) ) {
+			wp_die( 'Unauthorized' );
+		}
+		$id    = intval( $_POST['tag_id'] ?? 0 );
+		$name  = sanitize_text_field( $_POST['name']  ?? '' );
+		$color = sanitize_hex_color( $_POST['color'] ?? '#3b82f6' ) ?: '#3b82f6';
+		if ( $id && $name ) {
+			( new ECWP_Tags() )->update( $id, $name, $color );
+		}
+		wp_redirect( admin_url( "admin.php?page=ecwp-tags&action=edit&tag_id={$id}&updated=1" ) );
+		exit;
+	}
+
+	public function remove_subscriber_from_tag() {
+		if ( ! current_user_can( 'manage_options' ) || ! check_admin_referer( 'ecwp_remove_subscriber_from_tag' ) ) {
+			wp_die( 'Unauthorized' );
+		}
+		$tag_id = intval( $_POST['tag_id']        ?? 0 );
+		$sub_id = intval( $_POST['subscriber_id'] ?? 0 );
+		if ( $tag_id && $sub_id ) {
+			( new ECWP_Tags() )->remove_subscriber_from_tag( $sub_id, $tag_id );
+		}
+		wp_redirect( admin_url( "admin.php?page=ecwp-tags&action=view&tag_id={$tag_id}&removed=1" ) );
 		exit;
 	}
 
@@ -657,17 +712,28 @@ class ECWP_Admin {
 			wp_redirect( admin_url( 'admin.php?page=ecwp-campaigns' ) );
 			exit;
 		}
-		$campaign  = ( new ECWP_Campaigns() )->get_by_id( $id );
-		$send_time = $campaign ? $campaign->send_time : '10:00';
 
-		// Set status to scheduled and enable schedule flag.
+		// Build the full "Y-m-d H:i" datetime from the form inputs.
+		$send_date = sanitize_text_field( $_POST['send_date'] ?? date( 'Y-m-d' ) );
+		$send_time = sanitize_text_field( $_POST['send_time'] ?? '10:00' );
+		$datetime  = $send_date . ' ' . $send_time;
+
+		// Set status to scheduled.
 		( new ECWP_Campaigns() )->update( $id, [
 			'status'           => 'scheduled',
 			'schedule_enabled' => 1,
+			'send_time'        => $send_time,
 		] );
 
-		// Register the per-campaign cron event.
-		( new ECWP_Scheduler() )->schedule_campaign( $id, $send_time );
+		// Register the per-campaign cron event at the exact date+time.
+		$ok = ( new ECWP_Scheduler() )->schedule_campaign( $id, $datetime );
+
+		if ( ! $ok ) {
+			// Past datetime — revert to draft and show error.
+			( new ECWP_Campaigns() )->update( $id, [ 'status' => 'draft' ] );
+			wp_redirect( admin_url( "admin.php?page=ecwp-campaigns&action=edit&campaign_id={$id}&schedule_error=past" ) );
+			exit;
+		}
 
 		wp_redirect( admin_url( "admin.php?page=ecwp-campaigns&action=edit&campaign_id={$id}&scheduled=1" ) );
 		exit;

@@ -134,6 +134,33 @@ class ECWP_Tags {
 	}
 
 	/**
+	 * Get all subscribers (with full row data) that have a specific tag.
+	 */
+	public function get_tag_subscribers( $tag_id ) {
+		global $wpdb;
+		$sub_table = $wpdb->prefix . 'ecwp_subscribers';
+		return $wpdb->get_results( $wpdb->prepare(
+			"SELECT s.* FROM {$sub_table} s
+			 INNER JOIN {$this->sub_tags_table} st ON s.id = st.subscriber_id
+			 WHERE st.tag_id = %d
+			 ORDER BY s.email ASC",
+			$tag_id
+		) );
+	}
+
+	/**
+	 * Remove a single subscriber from a single tag.
+	 */
+	public function remove_subscriber_from_tag( $subscriber_id, $tag_id ) {
+		global $wpdb;
+		return $wpdb->delete(
+			$this->sub_tags_table,
+			[ 'subscriber_id' => intval( $subscriber_id ), 'tag_id' => intval( $tag_id ) ],
+			[ '%d', '%d' ]
+		);
+	}
+
+	/**
 	 * Get all active subscriber IDs that have ANY of the given tags.
 	 */
 	public function get_subscriber_ids_by_tags( array $tag_ids ) {

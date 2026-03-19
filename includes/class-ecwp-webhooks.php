@@ -53,13 +53,23 @@ class ECWP_Webhooks {
 		$log_table       = $wpdb->prefix . 'ecwp_send_log';
 		$analytics_table = $wpdb->prefix . 'ecwp_analytics';
 
+		// ── Look up campaign_id from send_log by message_id ──────────────
+		$campaign_id = 0;
+		if ( ! empty( $message_id ) ) {
+			$campaign_id = (int) $wpdb->get_var( $wpdb->prepare(
+				"SELECT campaign_id FROM {$log_table} WHERE message_id = %s LIMIT 1",
+				$message_id
+			) );
+		}
+
 		// ── Record the event ──────────────────────────────────────────────
 		$wpdb->insert( $analytics_table, [
-			'message_id' => sanitize_text_field( $message_id ),
-			'event_type' => sanitize_text_field( $event_type ),
-			'recipient'  => sanitize_email( $recipient ),
-			'event_data' => wp_json_encode( $event_data ),
-			'created_at' => current_time( 'mysql' ),
+			'campaign_id' => $campaign_id,
+			'message_id'  => sanitize_text_field( $message_id ),
+			'event_type'  => sanitize_text_field( $event_type ),
+			'recipient'   => sanitize_email( $recipient ),
+			'raw_data'    => wp_json_encode( $event_data ),
+			'created_at'  => current_time( 'mysql' ),
 		] );
 
 		// ── Update send-log status ────────────────────────────────────────
