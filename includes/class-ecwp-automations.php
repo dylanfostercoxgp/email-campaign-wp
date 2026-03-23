@@ -21,11 +21,42 @@ class ECWP_Automations {
 		if ( ! wp_next_scheduled( 'ecwp_evaluate_automations' ) ) {
 			wp_schedule_event( time(), 'daily', 'ecwp_evaluate_automations' );
 		}
+
+		// Ensure schema columns exist (handles upgrades from pre-1.3.3).
+		$this->ensure_columns();
 	}
 
 	/* ------------------------------------------------------------------ */
 	/*  Table helpers                                                       */
 	/* ------------------------------------------------------------------ */
+
+	/** Cached flag so SHOW COLUMNS only runs once per request. */
+	private static bool $columns_checked = false;
+
+	/**
+	 * Add any columns that may be missing on older installs.
+	 * Safe to call multiple times — skips if already run this request.
+	 */
+	private function ensure_columns(): void {
+		if ( self::$columns_checked ) {
+			return;
+		}
+		self::$columns_checked = true;
+
+		global $wpdb;
+		$table = $this->table();
+
+		// Table might not exist yet on a brand-new install (activation hook handles that).
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) !== $table ) {
+			return;
+		}
+
+		$existing = array_column( $wpdb->get_results( "SHOW COLUMNS FROM {$table}" ), 'Field' );
+
+		if ( ! in_array( 'delay_unit', $existing, true ) ) {
+			$wpdb->query( "ALTER TABLE {$table} ADD COLUMN delay_unit VARCHAR(20) NOT NULL DEFAULT 'days' AFTER delay_days" );
+		}
+	}
 
 	private function table() {
 		global $wpdb;
@@ -87,6 +118,7 @@ class ECWP_Automations {
 	 */
 	public function create( $data ) {
 		global $wpdb;
+		$this->ensure_columns(); // Safety net: add missing columns before inserting.
 		$valid_units = [ 'minutes', 'hours', 'days', 'weeks' ];
 		$delay_unit  = in_array( $data['delay_unit'] ?? 'days', $valid_units, true )
 			? $data['delay_unit']
