@@ -87,12 +87,17 @@ class ECWP_Automations {
 	 */
 	public function create( $data ) {
 		global $wpdb;
+		$valid_units = [ 'minutes', 'hours', 'days', 'weeks' ];
+		$delay_unit  = in_array( $data['delay_unit'] ?? 'days', $valid_units, true )
+			? $data['delay_unit']
+			: 'days';
 		$ok = $wpdb->insert( $this->table(), [
 			'name'                  => sanitize_text_field( $data['name'] ),
 			'trigger_campaign_id'   => intval( $data['trigger_campaign_id'] ),
 			'followup_campaign_id'  => intval( $data['followup_campaign_id'] ),
 			'condition'             => sanitize_key( $data['condition'] ),
 			'delay_days'            => max( 1, intval( $data['delay_days'] ) ),
+			'delay_unit'            => $delay_unit,
 			'status'                => 'active',
 			'last_run_at'           => null,
 			'total_sent'            => 0,
@@ -107,7 +112,7 @@ class ECWP_Automations {
 	public function update( $id, $data ) {
 		global $wpdb;
 		$allowed = [ 'name', 'trigger_campaign_id', 'followup_campaign_id',
-		             'condition', 'delay_days', 'status', 'last_run_at', 'total_sent' ];
+		             'condition', 'delay_days', 'delay_unit', 'status', 'last_run_at', 'total_sent' ];
 		$clean = [];
 		foreach ( $allowed as $k ) {
 			if ( array_key_exists( $k, $data ) ) {
@@ -213,7 +218,7 @@ class ECWP_Automations {
 		}
 
 		$sent_ts   = strtotime( $sent_at_str );
-		$ready_ts  = $sent_ts + ( intval( $auto->delay_days ) * DAY_IN_SECONDS );
+		$ready_ts  = $sent_ts + $this->delay_to_seconds( $auto->delay_days, $auto->delay_unit ?? 'days' );
 
 		if ( time() < $ready_ts ) {
 			return 0; // Not yet time to evaluate.
@@ -476,6 +481,43 @@ class ECWP_Automations {
 		}
 
 		return $sent_count;
+	}
+
+	/* ------------------------------------------------------------------ */
+	/*  Wait-period helper                                                 */
+	/* ------------------------------------------------------------------ */
+
+	/**
+	 * Convert a delay value + unit string into seconds.
+	 *
+	 * @param  int    $value  Numeric delay amount.
+	 * @param  string $unit   'minutes' | 'hours' | 'days' | 'weeks'
+	 * @return int  Seconds to wait.
+	 */
+	private function delay_to_seconds( $value, $unit ) {
+		$map = [
+			'minutes' => MINUTE_IN_SECONDS,
+			'hours'   => HOUR_IN_SECONDS,
+			'days'    => DAY_IN_SECONDS,
+			'weeks'   => WEEK_IN_SECONDS,
+		];
+		return intval( $value ) * ( $map[ $unit ] ?? DAY_IN_SECONDS );
+	}
+
+	/**
+	 * Return a human-readable label for a delay value + unit.
+	 * e.g. delay_label(5, 'days') → "5 days"
+	 */
+	public static function delay_label( $value, $unit ) {
+		$value = intval( $value );
+		$labels = [
+			'minutes' => [ 'minute', 'minutes' ],
+			'hours'   => [ 'hour',   'hours'   ],
+			'days'    => [ 'day',    'days'    ],
+			'weeks'   => [ 'week',   'weeks'   ],
+		];
+		$pair = $labels[ $unit ] ?? [ 'day', 'days' ];
+		return $value . ' ' . ( $value === 1 ? $pair[0] : $pair[1] );
 	}
 
 	/* ------------------------------------------------------------------ */

@@ -883,14 +883,11 @@ class ECWP_Admin {
 
 		} elseif ( $action === 'create' ) {
 			global $wpdb;
-			// Only 'sent' campaigns as trigger options; all campaigns as follow-up options.
-			$sent_campaigns = $wpdb->get_results(
-				"SELECT id, subject FROM {$wpdb->prefix}ecwp_campaigns
-				 WHERE status = 'sent' ORDER BY id DESC"
-			);
+			// All campaigns shown in trigger dropdown — automation waits until it's sent.
 			$all_campaigns = $wpdb->get_results(
 				"SELECT id, subject, status FROM {$wpdb->prefix}ecwp_campaigns ORDER BY id DESC"
 			);
+			$sent_campaigns = array_filter( $all_campaigns, fn( $c ) => $c->status === 'sent' );
 			$automation = null;
 			$auto_log   = [];
 			$log_count  = 0;
@@ -919,6 +916,10 @@ class ECWP_Admin {
 		$followup_campaign_id = intval( $_POST['followup_campaign_id'] ?? 0 );
 		$condition            = sanitize_key( $_POST['condition'] ?? 'not_clicked' );
 		$delay_days           = max( 1, intval( $_POST['delay_days'] ?? 5 ) );
+		$valid_units          = [ 'minutes', 'hours', 'days', 'weeks' ];
+		$delay_unit           = in_array( $_POST['delay_unit'] ?? 'days', $valid_units, true )
+			? sanitize_key( $_POST['delay_unit'] )
+			: 'days';
 
 		if ( ! $name || ! $trigger_campaign_id || ! $followup_campaign_id ) {
 			wp_redirect( admin_url( 'admin.php?page=ecwp-automations&action=create&create_error=' . rawurlencode( 'Please fill in all required fields.' ) ) );
@@ -930,7 +931,7 @@ class ECWP_Admin {
 			$condition = 'not_clicked';
 		}
 
-		$id = ( new ECWP_Automations() )->create( compact( 'name', 'trigger_campaign_id', 'followup_campaign_id', 'condition', 'delay_days' ) );
+		$id = ( new ECWP_Automations() )->create( compact( 'name', 'trigger_campaign_id', 'followup_campaign_id', 'condition', 'delay_days', 'delay_unit' ) );
 
 		if ( $id ) {
 			wp_redirect( admin_url( "admin.php?page=ecwp-automations&action=view&automation_id={$id}&created=1" ) );

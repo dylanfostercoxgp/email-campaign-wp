@@ -110,7 +110,7 @@
 		<div class="ecwp-stat-card">
 			<div class="ecwp-stat-icon" style="background:#dcfce7;color:#16a34a;"><span class="dashicons dashicons-clock"></span></div>
 			<div>
-				<div class="ecwp-stat-value"><?php echo intval( $automation->delay_days ); ?> day<?php echo $automation->delay_days != 1 ? 's' : ''; ?></div>
+				<div class="ecwp-stat-value"><?php echo esc_html( ECWP_Automations::delay_label( $automation->delay_days, $automation->delay_unit ?? 'days' ) ); ?></div>
 				<div class="ecwp-stat-label">Wait Period</div>
 			</div>
 		</div>
@@ -211,12 +211,23 @@
 				<div class="ecwp-field">
 					<label for="trigger_campaign_id">Trigger Campaign <span class="required">*</span></label>
 					<select id="trigger_campaign_id" name="trigger_campaign_id" class="ecwp-input" required onchange="ecwpCheckSameCampaign()">
-						<option value="">— Select a sent campaign —</option>
-						<?php foreach ( $sent_campaigns as $c ) : ?>
-							<option value="<?php echo (int) $c->id; ?>"><?php echo esc_html( $c->subject ); ?></option>
+						<option value="">— Select a campaign —</option>
+						<?php foreach ( $all_campaigns as $c ) :
+							$status_label = match( $c->status ) {
+								'sent'      => ' ✓ sent',
+								'sending'   => ' ⏳ sending',
+								'scheduled' => ' 📅 scheduled',
+								'draft'     => ' ✏️ draft',
+								default     => ' [' . esc_html( $c->status ) . ']',
+							};
+						?>
+							<option value="<?php echo (int) $c->id; ?>"><?php echo esc_html( $c->subject ) . $status_label; ?></option>
 						<?php endforeach; ?>
 					</select>
-					<span class="ecwp-hint">The original campaign subscribers received. Only <strong>sent</strong> campaigns are listed.</span>
+					<span class="ecwp-hint">
+						Pick any campaign — including drafts or scheduled ones — and set up the automation in advance.
+						The follow-up will only be evaluated <strong>after</strong> the trigger campaign has fully sent.
+					</span>
 				</div>
 
 				<div class="ecwp-field">
@@ -230,9 +241,17 @@
 				</div>
 
 				<div class="ecwp-field">
-					<label for="delay_days">Wait Period (days) <span class="required">*</span></label>
-					<input type="number" id="delay_days" name="delay_days" class="ecwp-input ecwp-input-sm" value="5" min="1" max="365" required style="width:100px;">
-					<span class="ecwp-hint">How many days after the trigger campaign's last send to wait before evaluating.</span>
+					<label for="delay_days">Wait Period <span class="required">*</span></label>
+					<div style="display:flex;gap:8px;align-items:center;">
+						<input type="number" id="delay_days" name="delay_days" class="ecwp-input ecwp-input-sm" value="5" min="1" max="9999" required style="width:90px;">
+						<select name="delay_unit" id="delay_unit" class="ecwp-input ecwp-input-sm" style="width:130px;">
+							<option value="minutes">minutes</option>
+							<option value="hours">hours</option>
+							<option value="days" selected>days</option>
+							<option value="weeks">weeks</option>
+						</select>
+					</div>
+					<span class="ecwp-hint">How long after the trigger campaign's last send to wait before evaluating. Use minutes for testing.</span>
 				</div>
 
 				<div class="ecwp-field">
@@ -266,13 +285,14 @@
 		<div class="ecwp-card-body" style="font-size:13px;line-height:1.7;color:#374151;">
 			<p>Once active, the automation is evaluated <strong>once per day</strong> (via WordPress Cron). Here's what happens:</p>
 			<ol style="margin:8px 0 0 16px;">
-				<li>After the wait period has passed since your trigger campaign's last send, the system checks who received it.</li>
-				<li>Subscribers who <em>met your condition</em> (e.g., didn't click) are identified.</li>
+				<li><strong>Set it up any time</strong> — you can create the automation before the trigger campaign has been sent. It won't fire until the trigger campaign's status becomes "sent".</li>
+				<li>After the trigger campaign sends and your wait period elapses, the system identifies who received it.</li>
+				<li>Subscribers who <em>met your condition</em> (e.g., didn't click) are eligible for the follow-up.</li>
 				<li>Anyone who has already received this follow-up is skipped — each subscriber only ever gets it once.</li>
 				<li>Unsubscribed contacts are always excluded.</li>
 				<li>The follow-up is sent via Mailgun and appears in your Analytics like any campaign send.</li>
 			</ol>
-			<p style="margin-top:10px;">You can also trigger a <strong>manual run</strong> at any time from the automation's detail page.</p>
+			<p style="margin-top:10px;">💡 <strong>Tip:</strong> Use <em>minutes</em> for the wait period while testing so you can see results right away. You can also trigger a <strong>manual run</strong> from the automation's detail page.</p>
 		</div>
 	</div>
 
@@ -366,7 +386,7 @@
 								<?php echo esc_html( $auto->followup_subject ?: '—' ); ?>
 							</td>
 							<td><span class="ecwp-hint"><?php echo esc_html( $condition_labels[ $auto->condition ] ?? $auto->condition ); ?></span></td>
-							<td><?php echo intval( $auto->delay_days ); ?>d</td>
+							<td style="white-space:nowrap;"><?php echo esc_html( ECWP_Automations::delay_label( $auto->delay_days, $auto->delay_unit ?? 'days' ) ); ?></td>
 							<td><?php echo number_format( $auto->total_sent ); ?></td>
 							<td style="white-space:nowrap;" class="ecwp-hint">
 								<?php echo $auto->last_run_at ? esc_html( date( 'M j, Y', strtotime( $auto->last_run_at ) ) ) : 'Never'; ?>

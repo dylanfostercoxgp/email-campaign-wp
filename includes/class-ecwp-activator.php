@@ -63,6 +63,15 @@ class ECWP_Activator {
 				$wpdb->query( "ALTER TABLE {$subs} ADD COLUMN notes TEXT AFTER website" );
 			}
 		}
+
+		/* ── Automations table — add delay_unit for existing installs ─── */
+		$autos = $wpdb->prefix . 'ecwp_automations';
+		if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $autos ) ) === $autos ) {
+			$existing_auto = array_column( $wpdb->get_results( "SHOW COLUMNS FROM {$autos}" ), 'Field' );
+			if ( ! in_array( 'delay_unit', $existing_auto, true ) ) {
+				$wpdb->query( "ALTER TABLE {$autos} ADD COLUMN delay_unit VARCHAR(20) NOT NULL DEFAULT 'days' AFTER delay_days" );
+			}
+		}
 	}
 
 	private static function create_tables() {
@@ -205,6 +214,7 @@ class ECWP_Activator {
 			followup_campaign_id  BIGINT(20)   NOT NULL,
 			condition             VARCHAR(50)  NOT NULL DEFAULT 'not_clicked',
 			delay_days            INT          NOT NULL DEFAULT 5,
+			delay_unit            VARCHAR(20)  NOT NULL DEFAULT 'days',
 			status                VARCHAR(20)  NOT NULL DEFAULT 'active',
 			last_run_at           DATETIME     DEFAULT NULL,
 			total_sent            INT          NOT NULL DEFAULT 0,
